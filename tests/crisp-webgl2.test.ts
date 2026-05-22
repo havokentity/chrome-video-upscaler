@@ -20,7 +20,8 @@ describe('WebGL2 Crisp helpers', () => {
     expect(normalizeCrispSharpness(Number.POSITIVE_INFINITY)).toBe(0.35);
     expect(normalizeCrispSharpness(-0.25)).toBe(0);
     expect(normalizeCrispSharpness(0.65)).toBe(0.65);
-    expect(normalizeCrispSharpness(1.5)).toBe(1);
+    expect(normalizeCrispSharpness(1.5)).toBe(1.5);
+    expect(normalizeCrispSharpness(3)).toBe(2);
   });
 
   it('uses the source video dimensions when they are available', () => {

@@ -239,7 +239,7 @@ export const normalizeSharpenSharpness = (sharpness: number | undefined): number
     return DEFAULT_SHARPNESS;
   }
 
-  return Math.min(1, Math.max(0, sharpness));
+  return Math.min(2, Math.max(0, sharpness));
 };
 
 export const computeSharpenOutputSize = ({

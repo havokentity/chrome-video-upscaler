@@ -217,8 +217,9 @@ fn rcas_main(@builtin(global_invocation_id) invocation_id: vec3u) {
   let hit_min = min(mn4, e) / max(4.0 * mx4, vec3f(0.0001));
   let hit_max = (vec3f(1.0) - max(mx4, e)) / min(4.0 * mn4 - vec3f(4.0), vec3f(-0.0001));
   let lobe_rgb = max(-hit_min, hit_max);
-  let user_sharpness = clamp(params.sharpness_and_scale.x, 0.0, 1.0);
-  let sharpness = mix(0.55, 1.28, user_sharpness) + rescue_boost * 0.18;
+  let user_sharpness = clamp(params.sharpness_and_scale.x, 0.0, 2.0);
+  let slider_sharpness = min(user_sharpness, 1.0);
+  let sharpness = mix(0.55, 1.45, slider_sharpness) + rescue_boost * 0.22;
   let base_lobe = min(max(lobe_rgb.r, max(lobe_rgb.g, lobe_rgb.b)), 0.0);
   let lobe = max(-0.1875, base_lobe * sharpness * noise);
   let rcp_l = 1.0 / (4.0 * lobe + 1.0);
@@ -229,12 +230,12 @@ fn rcas_main(@builtin(global_invocation_id) invocation_id: vec3u) {
   let micro_pass = e - wide_mean;
   let edge_mask = smoothstep(0.008, 0.13, range_max - range_min);
   let line_mask = smoothstep(0.012, 0.22, max(abs(d_l - f_l), abs(b_l - h_l)));
-  let detail_strength = (mix(0.18, 0.95, user_sharpness) + rescue_boost * 0.58) * max(edge_mask, line_mask);
-  let micro_strength = rescue_boost * mix(0.08, 0.38, user_sharpness) * noise;
-  let contrast_strength = 0.045 * user_sharpness + rescue_boost * 0.055;
+  let detail_strength = (mix(0.18, 1.05, slider_sharpness) + rescue_boost * 0.62) * max(edge_mask, line_mask);
+  let micro_strength = rescue_boost * mix(0.08, 0.42, slider_sharpness) * noise;
+  let contrast_strength = 0.045 * slider_sharpness + rescue_boost * 0.055;
   let flat_smoothing = mix(e, wide_mean, rescue_boost * (1.0 - edge_mask) * 0.06);
   out_color = mix(out_color, flat_smoothing, rescue_boost * (1.0 - edge_mask) * 0.18);
-  let guard = vec3f(mix(0.04, 0.16, max(user_sharpness, rescue_boost)));
+  let guard = vec3f(mix(0.04, 0.16, max(slider_sharpness, rescue_boost)));
   out_color = clamp(
     out_color + high_pass * detail_strength + micro_pass * micro_strength + (e - 0.5) * contrast_strength * edge_mask,
     max(vec3f(0.0), min(mn4, e) - guard),

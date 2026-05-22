@@ -8,7 +8,8 @@ describe('Sharpen helpers', () => {
     expect(normalizeSharpenSharpness(Number.NaN)).toBe(0.35);
     expect(normalizeSharpenSharpness(-0.5)).toBe(0);
     expect(normalizeSharpenSharpness(0.5)).toBe(0.5);
-    expect(normalizeSharpenSharpness(2)).toBe(1);
+    expect(normalizeSharpenSharpness(1.5)).toBe(1.5);
+    expect(normalizeSharpenSharpness(3)).toBe(2);
   });
 
   it('renders Sharpen at least to native source resolution', () => {

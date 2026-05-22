@@ -215,8 +215,9 @@ void main() {
   vec3 hitMin = min(mn4, e) / max(4.0 * mx4, vec3(0.0001));
   vec3 hitMax = (vec3(1.0) - max(mx4, e)) / min(4.0 * mn4 - vec3(4.0), vec3(-0.0001));
   vec3 lobeRgb = max(-hitMin, hitMax);
-  float userSharpness = clamp(u_sharpness, 0.0, 1.0);
-  float sharpness = mix(0.55, 1.28, userSharpness) + rescueBoost * 0.18;
+  float userSharpness = clamp(u_sharpness, 0.0, 2.0);
+  float sliderSharpness = min(userSharpness, 1.0);
+  float sharpness = mix(0.55, 1.45, sliderSharpness) + rescueBoost * 0.22;
   float baseLobe = min(max(lobeRgb.r, max(lobeRgb.g, lobeRgb.b)), 0.0);
   float lobe = max(-0.1875, baseLobe * sharpness * noise);
   float rcpL = 1.0 / (4.0 * lobe + 1.0);
@@ -227,12 +228,12 @@ void main() {
   vec3 microPass = e - wideMean;
   float edgeMask = smoothstep(0.008, 0.13, rangeMax - rangeMin);
   float lineMask = smoothstep(0.012, 0.22, max(abs(dL - fL), abs(bL - hL)));
-  float detailStrength = (mix(0.18, 0.95, userSharpness) + rescueBoost * 0.58) * max(edgeMask, lineMask);
-  float microStrength = rescueBoost * mix(0.08, 0.38, userSharpness) * noise;
-  float contrastStrength = 0.045 * userSharpness + rescueBoost * 0.055;
+  float detailStrength = (mix(0.18, 1.05, sliderSharpness) + rescueBoost * 0.62) * max(edgeMask, lineMask);
+  float microStrength = rescueBoost * mix(0.08, 0.42, sliderSharpness) * noise;
+  float contrastStrength = 0.045 * sliderSharpness + rescueBoost * 0.055;
   vec3 flatSmoothing = mix(e, wideMean, rescueBoost * (1.0 - edgeMask) * 0.06);
   color = mix(color, flatSmoothing, rescueBoost * (1.0 - edgeMask) * 0.18);
-  vec3 guard = vec3(mix(0.04, 0.16, max(userSharpness, rescueBoost)));
+  vec3 guard = vec3(mix(0.04, 0.16, max(sliderSharpness, rescueBoost)));
   color = clamp(
     color + highPass * detailStrength + microPass * microStrength + (e - vec3(0.5)) * contrastStrength * edgeMask,
     max(vec3(0.0), min(mn4, e) - guard),
@@ -488,7 +489,7 @@ export const normalizeCrispSharpness = (sharpness: number | undefined): number =
     return DEFAULT_SHARPNESS;
   }
 
-  return Math.min(1, Math.max(0, sharpness));
+  return Math.min(2, Math.max(0, sharpness));
 };
 
 export interface ComputeCrispOutputSizeInput {
