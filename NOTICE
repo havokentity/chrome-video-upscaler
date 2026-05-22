@@ -13,6 +13,9 @@ Planned attributions before exact shader integration:
   https://github.com/GPUOpen-Effects/FidelityFX-FSR/blob/master/ffx-fsr/ffx_fsr1.h
 - AMD Contrast Adaptive Sharpening, MIT.
 - Anime4K v4 from bloc97/Anime4K, MIT.
+  Local Anime shaders are Anime4K-inspired placeholders written for this
+  project. They do not copy the upstream GLSL chain yet; exact shader imports
+  must preserve upstream headers before landing.
 - ArtCNN from Artoriuz/ArtCNN, MIT. Verified source target:
   https://github.com/Artoriuz/ArtCNN at commit b2fb535f3446060f9cb1782937f46385ea6cacc5.
   Local file `src/upscaler/modes/neural-lite/artcnn-c4f16-preview.wgsl`

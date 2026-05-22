@@ -13,7 +13,7 @@ const MODE_LABELS: Record<UpscalerMode, string> = {
   auto: 'Auto',
   crisp: 'Crisp (FSR)',
   sharpen: 'Sharpen (CAS)',
-  anime: 'Anime (Anime4K)',
+  anime: 'Anime (Anime4K-inspired)',
   smooth: 'Smooth (Lanczos)',
   edge: 'Edge Detect',
   'night-vision': 'Night Vision',
