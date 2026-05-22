@@ -1,6 +1,9 @@
 import type { UpscalerMode, UpscalerSettings } from '../common/modes';
 import { classifyVideoFrame } from './auto/classifier';
+import { WebGpuAnimePipeline } from './modes/anime';
 import { createWebGL2CrispPipeline, WebGpuCrispPipeline } from './modes/crisp';
+import { createWebGpuNeuralLitePipeline } from './modes/neural-lite';
+import { createWebGpuNeuralProPipeline } from './modes/neural-pro';
 import { createWebGL2SharpenPipeline, WebGpuSharpenPipeline } from './modes/sharpen';
 import { WebGpuSmoothPipeline } from './modes/smooth';
 
@@ -39,10 +42,10 @@ export class DisabledPipeline implements FramePipeline {
   }
 }
 
-type ImplementedMode = Extract<UpscalerMode, 'crisp' | 'sharpen' | 'smooth'>;
+type ImplementedMode = Extract<UpscalerMode, 'crisp' | 'sharpen' | 'anime' | 'smooth'>;
 
 const isImplementedMode = (mode: UpscalerMode): mode is ImplementedMode =>
-  mode === 'crisp' || mode === 'sharpen' || mode === 'smooth';
+  mode === 'crisp' || mode === 'sharpen' || mode === 'anime' || mode === 'smooth';
 
 const getErrorMessage = (error: unknown, fallback: string): string =>
   error instanceof Error ? error.message : fallback;
@@ -66,8 +69,21 @@ export const createPipeline = async (
       ? ''
       : `Auto -> ${autoClassification.mode}${mode !== autoClassification.mode ? ` (using ${mode} until ${autoClassification.mode} lands)` : ''}; `;
 
-  if (requestedMode !== 'auto' && !isImplementedMode(requestedMode)) {
-    return new DisabledPipeline(`${requestedMode} mode is not implemented yet.`, requestedMode);
+  if (requestedMode === 'neural-lite') {
+    return createWebGpuNeuralLitePipeline({
+      canvas,
+      scale: settings.scale,
+      video,
+    });
+  }
+
+  if (requestedMode === 'neural-pro') {
+    return createWebGpuNeuralProPipeline({
+      canvas,
+      scale: settings.scale,
+      variant: settings.ravuVariant,
+      video,
+    });
   }
 
   if (mode === 'crisp') {
@@ -139,6 +155,35 @@ export const createPipeline = async (
         webgpuFailure
           ? `WebGPU Sharpen failed: ${webgpuFailure}; WebGL2 Sharpen failed: ${reason}`
           : reason,
+      );
+    }
+  }
+
+  if (mode === 'anime') {
+    if (!('gpu' in navigator) || !navigator.gpu || settings.forceWebGL2) {
+      return new DisabledPipeline(
+        `${autoPrefix}Anime mode requires WebGPU; WebGL2 fallback is not available.`,
+        requestedMode === 'auto' ? `auto -> ${mode}` : mode,
+      );
+    }
+
+    try {
+      const pipeline = await WebGpuAnimePipeline.create({
+        canvas,
+        presentationFormat: navigator.gpu.getPreferredCanvasFormat(),
+        scale: settings.scale,
+        subMode: settings.animeSubMode,
+        video,
+      });
+      const status: PipelineStatus = pipeline.status;
+      status.mode = requestedMode === 'auto' ? `auto -> ${mode}` : mode;
+      status.reason = `${autoPrefix}${pipeline.status.reason ?? ''}`.trim();
+      return pipeline;
+    } catch (error) {
+      const reason = getErrorMessage(error, 'Unknown WebGPU Anime error.');
+      return new DisabledPipeline(
+        `${autoPrefix}${reason}`,
+        requestedMode === 'auto' ? `auto -> ${mode}` : mode,
       );
     }
   }

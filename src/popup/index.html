@@ -20,15 +20,44 @@
         <select id="mode"></select>
       </label>
 
-      <label>
+      <p id="modeNote" class="note"></p>
+
+      <label id="scaleField">
         Scale
         <select id="scale"></select>
       </label>
 
-      <label>
-        FSR sharpness
+      <label id="sharpnessField">
+        <span id="sharpnessLabel">Sharpness</span>
         <input id="fsrSharpness" type="range" min="0" max="1" step="0.05" />
+        <output id="sharpnessValue" for="fsrSharpness"></output>
       </label>
+
+      <fieldset id="animeField" disabled>
+        <legend>Anime4K</legend>
+        <label>
+          Sub-mode
+          <select id="animeSubMode">
+            <option value="mode-a">Mode A</option>
+            <option value="mode-aa">Mode A+A</option>
+          </select>
+        </label>
+      </fieldset>
+
+      <fieldset id="ravuField" disabled>
+        <legend>RAVU</legend>
+        <label>
+          Variant
+          <select id="ravuVariant">
+            <option value="auto">Auto</option>
+            <option value="zoom">RAVU-Zoom</option>
+            <option value="lite">RAVU-Lite</option>
+          </select>
+        </label>
+        <p class="note">Neural-Pro is opt-in once the LGPL shader port lands.</p>
+      </fieldset>
+
+      <p id="supportNote" class="note"></p>
     </main>
     <script type="module" src="./main.ts"></script>
   </body>

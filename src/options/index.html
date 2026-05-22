@@ -10,12 +10,48 @@
       <h1>Mac Video Upscaler Options</h1>
       <section>
         <h2>Defaults</h2>
-        <p id="summary"></p>
+        <p id="summary" class="note"></p>
+        <label>
+          Default mode
+          <select id="defaultMode"></select>
+        </label>
+        <p id="modeDescription" class="note"></p>
+        <label id="scaleField">
+          Default scale
+          <select id="defaultScale"></select>
+        </label>
+        <label id="sharpnessField">
+          <span id="sharpnessLabel">Sharpness</span>
+          <input id="fsrSharpness" type="range" min="0" max="1" step="0.05" />
+          <output id="sharpnessValue" for="fsrSharpness"></output>
+        </label>
+        <fieldset id="animeField" disabled>
+          <legend>Anime4K</legend>
+          <label>
+            Sub-mode
+            <select id="animeSubMode">
+              <option value="mode-a">Mode A</option>
+              <option value="mode-aa">Mode A+A</option>
+            </select>
+          </label>
+        </fieldset>
+        <fieldset id="ravuField" disabled>
+          <legend>RAVU</legend>
+          <label>
+            Variant
+            <select id="ravuVariant">
+              <option value="auto">Auto</option>
+              <option value="zoom">RAVU-Zoom</option>
+              <option value="lite">RAVU-Lite</option>
+            </select>
+          </label>
+        </fieldset>
+        <p id="supportNote" class="note"></p>
       </section>
       <section>
         <h2>Developer Panel</h2>
-        <label><input id="forceWebGL2" type="checkbox" /> Force WebGL2</label>
-        <label><input id="forceF32" type="checkbox" /> Force f32 shaders</label>
+        <label class="checkbox"><input id="forceWebGL2" type="checkbox" /> Force WebGL2</label>
+        <label class="checkbox"><input id="forceF32" type="checkbox" /> Force f32 shaders</label>
         <label>
           Workgroup size
           <select id="workgroupSize">

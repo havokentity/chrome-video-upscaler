@@ -8,10 +8,13 @@
 - [x] Implement Sharpen on WebGL2 and WebGPU.
 - [x] Add Smooth WebGPU path.
 - [x] Add auto classifier and route to implemented modes.
-- [ ] Add Anime4K v4 Mode A and A+A.
-- [ ] Add Neural-Lite / ArtCNN.
-- [ ] Add opt-in Neural-Pro / RAVU with LGPL attribution.
-- [ ] Finish HUD metrics, per-site storage, DRM/CORS detection, screenshots, benchmarks, and release notes.
+- [x] Add Anime4K-inspired Mode A and A+A milestone path.
+- [x] Verify Neural-Lite / ArtCNN license and add disabled skeleton.
+- [x] Add opt-in Neural-Pro / RAVU attribution skeleton.
+- [x] Add DRM/CORS frame access probe helpers.
+- [ ] Port full Neural-Lite / ArtCNN shader.
+- [ ] Port Neural-Pro / RAVU shaders with LGPL headers and NOTICE entries.
+- [ ] Finish HUD metrics, per-site storage, screenshots, benchmarks, and release notes.
 
 ## Explicit Non-Goals
 

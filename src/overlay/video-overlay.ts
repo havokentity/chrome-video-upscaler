@@ -1,5 +1,6 @@
 import { loadSettings } from '../common/storage';
 import { shouldBypassVideo } from '../common/site';
+import { classifyFrameAccessError } from '../content/frame-access-probe';
 import { createPipeline, type FramePipeline } from '../upscaler/pipeline';
 
 const OVERLAY_CLASS = 'mac-video-upscaler-overlay';
@@ -105,11 +106,16 @@ export class VideoOverlay {
       this.pipeline?.renderFrame();
       this.scheduleFrame();
     } catch (error) {
+      const frameAccess = classifyFrameAccessError(error);
       this.hud.hidden = false;
-      this.hud.textContent =
-        error instanceof Error
-          ? `Mac Video Upscaler: disabled - ${error.message}`
-          : 'Mac Video Upscaler: disabled - unknown frame copy error';
+      if (frameAccess.status === 'drm-or-cross-origin-blocked') {
+        this.hud.textContent = 'Mac Video Upscaler: disabled - DRM-protected or cross-origin video cannot be upscaled';
+      } else {
+        this.hud.textContent =
+          error instanceof Error
+            ? `Mac Video Upscaler: disabled - ${error.message}`
+            : 'Mac Video Upscaler: disabled - unknown frame copy error';
+      }
       this.video.style.opacity = this.previousVideoOpacity;
     }
   }

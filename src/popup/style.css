@@ -6,6 +6,8 @@
 body {
   width: 320px;
   margin: 0;
+  color: CanvasText;
+  background: Canvas;
 }
 
 .panel {
@@ -42,4 +44,58 @@ select,
 input {
   width: 100%;
   box-sizing: border-box;
+}
+
+select,
+input[type="range"] {
+  accent-color: #3b82f6;
+}
+
+select {
+  min-height: 32px;
+  border: 1px solid color-mix(in srgb, CanvasText 22%, transparent);
+  border-radius: 6px;
+  padding: 4px 8px;
+  background: Canvas;
+  color: CanvasText;
+}
+
+input[type="range"] {
+  margin: 0;
+}
+
+input[type="checkbox"] {
+  width: auto;
+}
+
+output {
+  justify-self: end;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, CanvasText 72%, transparent);
+}
+
+fieldset {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+legend {
+  padding: 0 4px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.note {
+  margin: 0;
+  color: color-mix(in srgb, CanvasText 68%, transparent);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+[hidden] {
+  display: none;
 }

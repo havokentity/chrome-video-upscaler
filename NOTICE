@@ -11,5 +11,8 @@ Planned attributions before exact shader integration:
 - AMD FidelityFX Super Resolution 1.0 EASU + RCAS, MIT.
 - AMD Contrast Adaptive Sharpening, MIT.
 - Anime4K v4 from bloc97/Anime4K, MIT.
-- ArtCNN from Artoriuz/ArtCNN, MIT pending verification at import.
-- RAVU shader variants from the mpv-player shaders ecosystem, LGPL-3.0.
+- ArtCNN from Artoriuz/ArtCNN, MIT. Verified source target:
+  https://github.com/Artoriuz/ArtCNN at commit b2fb535f3446060f9cb1782937f46385ea6cacc5.
+- RAVU shader variants from bjin/mpv-prescalers, LGPL-3.0-or-later.
+  Planned sources pinned at commit b3f0a59d68f33b7162051ea5970a5169558f0ea2:
+  ravu-zoom-ar-r3.hook and ravu-lite-ar-r3.hook.
