@@ -43,6 +43,9 @@ jobs:
           tar -xzf "$RUNNER_TEMP/dawn/dawn.tar.gz" -C "$RUNNER_TEMP/dawn"
           echo "$RUNNER_TEMP/dawn/Dawn-31e25af254ab572c77054edec4946d2244e184dd-macos-latest-Release/bin" >> "$GITHUB_PATH"
 
+      - name: Build extension for E2E
+        run: pnpm build
+
       - name: Install Playwright Chromium
         run: pnpm exec playwright install chromium
 
