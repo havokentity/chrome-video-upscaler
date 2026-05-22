@@ -10,6 +10,9 @@ export const MODE_LABELS: Record<UpscalerMode, string> = {
   edge: 'Edge Detect',
   'night-vision': 'Night Vision',
   predator: 'Predator',
+  crt: 'CRT',
+  invert: 'Inverted Colors',
+  cartoon: 'Cartoon Rotoscope',
   'neural-lite': 'Neural-Lite (coming soon)',
   'neural-pro': 'Neural-Pro (coming soon)',
 };
@@ -24,6 +27,9 @@ export const MODE_DESCRIPTIONS: Record<UpscalerMode, string> = {
   edge: 'Experimental WebGL2 edge filter for outlines and artifact inspection.',
   'night-vision': 'Experimental green phosphor WebGL2 filter.',
   predator: 'Experimental thermal false-color WebGL2 filter.',
+  crt: 'Experimental CRT scanline, vignette, and color-fringe WebGL2 filter.',
+  invert: 'Experimental inverted color WebGL2 filter.',
+  cartoon: 'Experimental toon-shader rotoscope WebGL2 filter.',
   'neural-lite': 'ArtCNN is reserved for the neural-lite milestone.',
   'neural-pro': 'RAVU is reserved for the LGPL neural-pro milestone.',
 };
@@ -38,6 +44,9 @@ const IMPLEMENTED_MODES = new Set<UpscalerMode>([
   'edge',
   'night-vision',
   'predator',
+  'crt',
+  'invert',
+  'cartoon',
 ]);
 
 export interface ModeControlState {
@@ -59,7 +68,13 @@ export const getModeControlState = (mode: UpscalerMode): ModeControlState => {
   const isSharpen = mode === 'sharpen';
   const isSmooth = mode === 'smooth';
   const isAnime = mode === 'anime';
-  const isFunFilter = mode === 'edge' || mode === 'night-vision' || mode === 'predator';
+  const isFunFilter =
+    mode === 'edge' ||
+    mode === 'night-vision' ||
+    mode === 'predator' ||
+    mode === 'crt' ||
+    mode === 'invert' ||
+    mode === 'cartoon';
 
   return {
     animeVisible: mode === 'anime',

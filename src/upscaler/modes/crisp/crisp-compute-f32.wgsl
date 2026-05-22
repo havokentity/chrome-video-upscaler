@@ -185,11 +185,14 @@ fn rcas_main(@builtin(global_invocation_id) invocation_id: vec3u) {
   }
 
   let ip = vec2f(pixel);
-  let b = sample_output(ip + vec2f(0.0, -1.0));
-  let d = sample_output(ip + vec2f(-1.0, 0.0));
+  let scale_ratio = min(params.output_size.x / params.source_size.x, params.output_size.y / params.source_size.y);
+  let tiny_source_boost = smoothstep(3.0, 10.0, scale_ratio);
+  let sample_radius = mix(1.0, 6.0, tiny_source_boost);
+  let b = sample_output(ip + vec2f(0.0, -sample_radius));
+  let d = sample_output(ip + vec2f(-sample_radius, 0.0));
   let e = sample_output(ip);
-  let f = sample_output(ip + vec2f(1.0, 0.0));
-  let h = sample_output(ip + vec2f(0.0, 1.0));
+  let f = sample_output(ip + vec2f(sample_radius, 0.0));
+  let h = sample_output(ip + vec2f(0.0, sample_radius));
 
   let b_l = luma(b);
   let d_l = luma(d);
@@ -214,13 +217,22 @@ fn rcas_main(@builtin(global_invocation_id) invocation_id: vec3u) {
   var out_color = clamp((lobe * (b + d + h + f) + e) * rcp_l, vec3f(0.0), vec3f(1.0));
   let high_pass = e - 0.25 * (b + d + f + h);
   let edge_mask = smoothstep(0.012, 0.16, range_max - range_min);
-  let detail_strength = mix(0.22, 0.85, user_sharpness) * edge_mask;
-  let guard = vec3f(mix(0.025, 0.09, user_sharpness));
+  let detail_strength = (mix(0.35, 1.2, user_sharpness) + tiny_source_boost * 0.85) * edge_mask;
+  let contrast_strength = (0.16 + tiny_source_boost * 0.32) * user_sharpness;
+  let guard = vec3f(mix(0.04, 0.14, max(user_sharpness, tiny_source_boost)));
   out_color = clamp(
-    out_color + high_pass * detail_strength,
+    out_color + high_pass * detail_strength + (e - 0.5) * contrast_strength * edge_mask,
     max(vec3f(0.0), min(mn4, e) - guard),
     min(vec3f(1.0), max(mx4, e) + guard),
   );
+  let contrast_luma = max(luma(out_color), 0.001);
+  let boosted_luma = clamp(0.5 + (contrast_luma - 0.5) * (1.0 + user_sharpness * (0.16 + tiny_source_boost * 0.38)), 0.0, 1.0);
+  out_color = clamp(out_color * (boosted_luma / contrast_luma), vec3f(0.0), vec3f(1.0));
+  let global_clarity = user_sharpness * (0.08 + tiny_source_boost * 0.22);
+  let global_luma = max(luma(out_color), 0.001);
+  let saturated = mix(vec3f(global_luma), out_color, 1.0 + global_clarity);
+  let global_boosted_luma = clamp(0.5 + (global_luma - 0.5) * (1.0 + global_clarity), 0.0, 1.0);
+  out_color = clamp(saturated * (global_boosted_luma / global_luma), vec3f(0.0), vec3f(1.0));
 
   textureStore(output_texture, pixel, vec4f(out_color, 1.0));
 }

@@ -26,13 +26,16 @@ pnpm dev
 | --- | --- | --- | --- |
 | None | Disabled | MIT | Passthrough option for native video with no filter or upscaling. |
 | Auto | WebGPU/WebGL2 | MIT | Cheap first-frame classifier; Neural-Pro remains opt-in. |
-| Crisp | WebGPU + WebGL2 | MIT | FSR 1.0-inspired EASU 12-tap reconstruction plus stronger RCAS/detail sharpening. The canvas renders at least to the video display backing size so Chrome does not blur the result with a second upscale. WebGPU currently uses the f32 quality path while the f16 port is revalidated. |
+| Crisp | WebGPU + WebGL2 | MIT | FSR 1.0-inspired EASU 12-tap reconstruction plus stronger RCAS/detail sharpening, with extra boost for tiny sources such as 144p. The canvas renders at least to the video display backing size so Chrome does not blur the result with a second upscale. WebGPU currently uses the f32 quality path while the f16 port is revalidated. |
 | Sharpen | WebGPU + WebGL2 | MIT | CAS-style 1.0x sharpen with WebGPU and WebGL2 paths. |
 | Anime | WebGPU | MIT | Anime4K-inspired Mode A and A+A milestone path; exact upstream chain remains planned. |
 | Smooth | WebGPU | Public-domain math | Lanczos/Jinc-style WebGPU upscaler; fuller EWA pass remains planned. |
 | Edge Detect | WebGL2 | MIT | Experimental outline filter for inspecting edges and compression artifacts. |
 | Night Vision | WebGL2 | MIT | Experimental green phosphor filter with scanline/noise styling. |
 | Predator | WebGL2 | MIT | Experimental thermal false-color filter for fun. |
+| CRT | WebGL2 | MIT | Experimental scanline, vignette, and color-fringe filter. |
+| Inverted Colors | WebGL2 | MIT | Experimental inverted color filter. |
+| Cartoon Rotoscope | WebGL2 | MIT | Experimental toon-shader look with posterized colors and inked edges. |
 | Neural-Lite | WebGPU | MIT | ArtCNN attribution verified; shader port pending. |
 | Neural-Pro | WebGPU | LGPL-3.0-or-later | RAVU-Zoom and RAVU-Lite attribution skeleton; shader import pending. |
 

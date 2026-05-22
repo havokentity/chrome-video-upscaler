@@ -55,10 +55,18 @@ const isImplementedMode = (mode: UpscalerMode): mode is ImplementedMode =>
   mode === 'smooth' ||
   mode === 'edge' ||
   mode === 'night-vision' ||
-  mode === 'predator';
+  mode === 'predator' ||
+  mode === 'crt' ||
+  mode === 'invert' ||
+  mode === 'cartoon';
 
 const isFunFilterMode = (mode: UpscalerMode): mode is FunFilterMode =>
-  mode === 'edge' || mode === 'night-vision' || mode === 'predator';
+  mode === 'edge' ||
+  mode === 'night-vision' ||
+  mode === 'predator' ||
+  mode === 'crt' ||
+  mode === 'invert' ||
+  mode === 'cartoon';
 
 const getErrorMessage = (error: unknown, fallback: string): string =>
   error instanceof Error ? error.message : fallback;

@@ -2,7 +2,10 @@ import type { UpscalerMode } from '../../../common/modes';
 import type { FramePipeline, PipelineStatus } from '../../pipeline';
 import { computeCrispOutputSize, normalizeCrispScale } from '../crisp';
 
-export type FunFilterMode = Extract<UpscalerMode, 'edge' | 'night-vision' | 'predator'>;
+export type FunFilterMode = Extract<
+  UpscalerMode,
+  'edge' | 'night-vision' | 'predator' | 'crt' | 'invert' | 'cartoon'
+>;
 
 export interface WebGL2FunPipelineOptions {
   readonly mode: FunFilterMode;
@@ -95,10 +98,39 @@ void main() {
     return;
   }
 
-  float heat = clamp(brightness * 0.82 + edgeGlow * 0.28 + max(center.r - center.b, 0.0) * 0.18, 0.0, 1.0);
-  vec3 thermal = thermalPalette(heat);
-  vec3 shimmer = vec3(0.04, 0.0, 0.08) * sin((gl_FragCoord.x + gl_FragCoord.y) * 0.08);
-  out_color = vec4(clamp(thermal + shimmer, vec3(0.0), vec3(1.0)), 1.0);
+  if (u_filter_mode == 2) {
+    float heat = clamp(brightness * 0.82 + edgeGlow * 0.28 + max(center.r - center.b, 0.0) * 0.18, 0.0, 1.0);
+    vec3 thermal = thermalPalette(heat);
+    vec3 shimmer = vec3(0.04, 0.0, 0.08) * sin((gl_FragCoord.x + gl_FragCoord.y) * 0.08);
+    out_color = vec4(clamp(thermal + shimmer, vec3(0.0), vec3(1.0)), 1.0);
+    return;
+  }
+
+  if (u_filter_mode == 3) {
+    vec2 fromCenter = v_uv * 2.0 - 1.0;
+    float vignette = smoothstep(1.42, 0.18, dot(fromCenter, fromCenter));
+    float scanline = 0.72 + 0.28 * smoothstep(0.2, 1.0, sin(gl_FragCoord.y * 3.14159));
+    float grille = 0.92 + 0.08 * sin(gl_FragCoord.x * 2.094);
+    vec3 crt = vec3(
+      texture(u_video, v_uv + vec2(texel.x * 1.35, 0.0)).r,
+      center.g,
+      texture(u_video, v_uv - vec2(texel.x * 1.35, 0.0)).b
+    );
+    crt = pow(max(crt, vec3(0.0)), vec3(0.86)) * scanline * grille * vignette;
+    out_color = vec4(clamp(crt, vec3(0.0), vec3(1.0)), 1.0);
+    return;
+  }
+
+  if (u_filter_mode == 4) {
+    out_color = vec4(vec3(1.0) - center, 1.0);
+    return;
+  }
+
+  vec3 quantized = floor(pow(center, vec3(0.85)) * 5.0 + 0.5) / 5.0;
+  quantized = mix(vec3(luma(quantized)), quantized, 1.35);
+  float ink = smoothstep(0.12, 0.34, edge);
+  vec3 toon = mix(clamp(quantized, vec3(0.0), vec3(1.0)), vec3(0.015, 0.012, 0.01), ink);
+  out_color = vec4(toon, 1.0);
 }
 `;
 
@@ -106,12 +138,18 @@ const FILTER_IDS: Record<FunFilterMode, number> = {
   edge: 0,
   'night-vision': 1,
   predator: 2,
+  crt: 3,
+  invert: 4,
+  cartoon: 5,
 };
 
 const FILTER_REASONS: Record<FunFilterMode, string> = {
   edge: 'Edge Detect WebGL2 filter active.',
   'night-vision': 'Night Vision WebGL2 filter active.',
   predator: 'Predator thermal WebGL2 filter active.',
+  crt: 'CRT WebGL2 filter active.',
+  invert: 'Inverted Colors WebGL2 filter active.',
+  cartoon: 'Cartoon rotoscope WebGL2 filter active.',
 };
 
 export class WebGL2FunPipeline implements FramePipeline {

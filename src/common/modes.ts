@@ -8,6 +8,9 @@ export const UPSCALER_MODES = [
   'edge',
   'night-vision',
   'predator',
+  'crt',
+  'invert',
+  'cartoon',
   'neural-lite',
   'neural-pro',
 ] as const;

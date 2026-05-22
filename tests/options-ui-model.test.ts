@@ -13,12 +13,18 @@ describe('options UI model', () => {
     expect(MODE_LABELS.edge).toContain('Edge');
     expect(MODE_LABELS['night-vision']).toContain('Night');
     expect(MODE_LABELS.predator).toContain('Predator');
+    expect(MODE_LABELS.crt).toContain('CRT');
+    expect(MODE_LABELS.invert).toContain('Inverted');
+    expect(MODE_LABELS.cartoon).toContain('Cartoon');
   });
 
   it('keeps future modes visible but disabled', () => {
     expect(isImplementedMode('none')).toBe(true);
     expect(isImplementedMode('anime')).toBe(true);
     expect(isImplementedMode('predator')).toBe(true);
+    expect(isImplementedMode('crt')).toBe(true);
+    expect(isImplementedMode('invert')).toBe(true);
+    expect(isImplementedMode('cartoon')).toBe(true);
     expect(isImplementedMode('neural-lite')).toBe(false);
     expect(isImplementedMode('neural-pro')).toBe(false);
     expect(MODE_LABELS['neural-pro']).toContain('coming soon');

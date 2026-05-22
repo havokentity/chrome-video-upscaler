@@ -18,6 +18,9 @@ const MODE_LABELS: Record<UpscalerMode, string> = {
   edge: 'Edge Detect',
   'night-vision': 'Night Vision',
   predator: 'Predator',
+  crt: 'CRT',
+  invert: 'Inverted Colors',
+  cartoon: 'Cartoon Rotoscope',
   'neural-lite': 'Neural-Lite (coming soon)',
   'neural-pro': 'Neural-Pro (coming soon)',
 };
@@ -32,6 +35,9 @@ const MODE_NOTES: Record<UpscalerMode, string> = {
   edge: 'Experimental cyan edge overlay for inspecting outlines and compression artifacts.',
   'night-vision': 'Experimental green phosphor look with scanline/noise texture.',
   predator: 'Experimental thermal false-color filter. For science. Mostly.',
+  crt: 'Experimental CRT scanlines, vignette, and color-fringe styling.',
+  invert: 'Experimental inverted color filter.',
+  cartoon: 'Experimental toon-shader rotoscope look with posterized colors and inked edges.',
   'neural-lite': 'ArtCNN integration is reserved for the next neural milestone.',
   'neural-pro': 'RAVU integration is reserved for the LGPL shader milestone.',
 };
@@ -46,6 +52,9 @@ const IMPLEMENTED_MODES = new Set<UpscalerMode>([
   'edge',
   'night-vision',
   'predator',
+  'crt',
+  'invert',
+  'cartoon',
 ]);
 
 const getRequiredElement = (selector: string): HTMLElement => {
@@ -114,7 +123,12 @@ const updateModeControls = (): void => {
   const isAnime = selectedMode === 'anime';
   const isNone = selectedMode === 'none';
   const isFunFilter =
-    selectedMode === 'edge' || selectedMode === 'night-vision' || selectedMode === 'predator';
+    selectedMode === 'edge' ||
+    selectedMode === 'night-vision' ||
+    selectedMode === 'predator' ||
+    selectedMode === 'crt' ||
+    selectedMode === 'invert' ||
+    selectedMode === 'cartoon';
 
   modeNote.textContent = MODE_NOTES[selectedMode];
   scaleField.hidden = isNone || isSharpen;

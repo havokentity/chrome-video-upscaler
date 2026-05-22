@@ -32,6 +32,7 @@ export interface WebGpuCrispPipelineStatus extends PipelineStatus {
   sourceWidth: number;
   sourceHeight: number;
   precision: 'f16' | 'f32';
+  sharpness: number;
 }
 
 export class WebGpuCrispPipelineError extends Error {
@@ -185,6 +186,7 @@ export class WebGpuCrispPipeline implements FramePipeline {
       mode: 'crisp',
       precision,
       reason: `FSR 1.0-style WebGPU ${precision} compute upscale active.`,
+      sharpness: this.sharpness,
       sourceHeight: 0,
       sourceWidth: 0,
     };
@@ -294,6 +296,7 @@ export class WebGpuCrispPipeline implements FramePipeline {
     }
 
     this.writeParams(sourceWidth, sourceHeight, output);
+    Object.assign(this.status, { sharpness: this.sharpness });
 
     const commandEncoder = this.device.createCommandEncoder({
       label: 'Crisp command encoder',

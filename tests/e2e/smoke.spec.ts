@@ -1,4 +1,4 @@
-import { expect, test, chromium, type BrowserContext } from '@playwright/test';
+import { expect, test, chromium, type BrowserContext, type Page } from '@playwright/test';
 import { createServer } from 'node:http';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { mkdtemp } from 'node:fs/promises';
@@ -269,6 +269,95 @@ test('Crisp mode uses the WebGL2 1.5x upscaler on a local MP4 video', async ({
   }
 });
 
+test('Crisp sharpness changes the rendered WebGL2 output', async ({
+  browserName,
+}, testInfo) => {
+  test.skip(browserName !== 'chromium', 'Chrome extensions can only be loaded in Chromium.');
+
+  expect(
+    existsSync(path.join(extensionPath, 'manifest.json')),
+    'Run `pnpm build` before `pnpm test:e2e`; this test loads the unpacked extension from dist.',
+  ).toBe(true);
+
+  const server = await startStaticServer(fixturesPath);
+  let context: BrowserContext | undefined;
+
+  const sampleOverlay = async (page: Page) =>
+    page.locator('.mac-video-upscaler-overlay').evaluate((canvas) => {
+      const source = canvas as HTMLCanvasElement;
+      const sampler = document.createElement('canvas');
+      sampler.width = 24;
+      sampler.height = 24;
+      const context2d = sampler.getContext('2d', { willReadFrequently: true });
+      if (!context2d) {
+        throw new Error('2D sampler unavailable.');
+      }
+
+      context2d.drawImage(source, 0, 0, sampler.width, sampler.height);
+      const data = context2d.getImageData(0, 0, sampler.width, sampler.height).data;
+      const sample: number[] = [];
+      for (let index = 0; index < data.length; index += 4) {
+        sample.push(data[index], data[index + 1], data[index + 2]);
+      }
+      return sample;
+    });
+  const sampleDelta = (left: readonly number[], right: readonly number[]): number => {
+    let delta = 0;
+    for (let index = 0; index < Math.min(left.length, right.length); index += 1) {
+      delta += Math.abs(left[index] - right[index]);
+    }
+    return delta / Math.max(1, Math.min(left.length, right.length));
+  };
+  const nudgeVideoFrame = async (page: Page): Promise<void> => {
+    await page.locator('#sample-video').evaluate((element) => {
+      const video = element as HTMLVideoElement;
+      video.currentTime = 0.05;
+      void video.play();
+    });
+  };
+
+  try {
+    context = await createExtensionContext(testInfo.workerIndex + 125);
+    await writeExtensionSettings(context, {
+      ...DEFAULT_SETTINGS,
+      forceWebGL2: true,
+      fsrSharpness: 0,
+      hudEnabled: true,
+      mode: 'crisp',
+      scale: 2,
+    });
+
+    const page = context.pages()[0] ?? (await context.newPage());
+    await page.goto(server.origin, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.mac-video-upscaler-overlay')).toHaveCount(1, { timeout: 10_000 });
+    await nudgeVideoFrame(page);
+    await expect(page.locator('#sample-video')).toHaveCSS('opacity', '0', { timeout: 10_000 });
+    await expect(page.locator('.mac-video-upscaler-hud')).toContainText('0');
+    const softSample = await sampleOverlay(page);
+
+    await writeExtensionSettings(context, {
+      ...DEFAULT_SETTINGS,
+      forceWebGL2: true,
+      fsrSharpness: 1,
+      hudEnabled: true,
+      mode: 'crisp',
+      scale: 2,
+    });
+    await expect(page.locator('.mac-video-upscaler-overlay')).toHaveCount(1, { timeout: 10_000 });
+    await nudgeVideoFrame(page);
+    await expect(page.locator('#sample-video')).toHaveCSS('opacity', '0', { timeout: 10_000 });
+    await expect(page.locator('.mac-video-upscaler-hud')).toContainText('1.00', {
+      timeout: 10_000,
+    });
+    await expect
+      .poll(async () => sampleDelta(await sampleOverlay(page), softSample), { timeout: 10_000 })
+      .toBeGreaterThan(0.5);
+  } finally {
+    await closeContext(context);
+    await server.close();
+  }
+});
+
 test('enabled setting rebuilds the active overlay without a page refresh', async ({
   browserName,
 }, testInfo) => {
@@ -409,6 +498,9 @@ const routedModeCases: Array<{
   { mode: 'edge', expectedHudText: 'edge' },
   { mode: 'night-vision', expectedHudText: 'night-vision' },
   { mode: 'predator', expectedHudText: 'predator' },
+  { mode: 'crt', expectedHudText: 'crt' },
+  { mode: 'invert', expectedHudText: 'invert' },
+  { mode: 'cartoon', expectedHudText: 'cartoon' },
   { mode: 'neural-lite', expectedHudText: 'neural-lite' },
   { mode: 'neural-pro', expectedHudText: 'neural-pro' },
 ];

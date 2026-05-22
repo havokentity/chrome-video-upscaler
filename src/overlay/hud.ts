@@ -110,6 +110,7 @@ export const buildHudRows = (
     formatStatusValue(getStringField(richStatus, 'adapterName')),
     formatStatusValue(getStringField(richStatus, 'precision')),
     formatStatusValue(getNumberField(richStatus, 'scale')),
+    formatStatusValue(getNumberField(richStatus, 'sharpness')),
     formatStatusValue(getStringField(richStatus, 'variant')),
     formatStatusValue(getStringField(richStatus, 'subMode')),
     formatStatusValue(getStringField(richStatus, 'frameGeneration')),

@@ -173,6 +173,7 @@ precision highp float;
 uniform sampler2D u_upscaled;
 uniform vec2 u_output_texel;
 uniform float u_sharpness;
+uniform float u_scale_ratio;
 
 in vec2 v_uv;
 out vec4 out_color;
@@ -182,7 +183,9 @@ float luma(vec3 color) {
 }
 
 void main() {
-  vec2 texel = u_output_texel;
+  float tinySourceBoost = smoothstep(3.0, 10.0, u_scale_ratio);
+  float sampleRadius = mix(1.0, 6.0, tinySourceBoost);
+  vec2 texel = u_output_texel * sampleRadius;
   vec3 b = texture(u_upscaled, v_uv - vec2(0.0, texel.y)).rgb;
   vec3 d = texture(u_upscaled, v_uv - vec2(texel.x, 0.0)).rgb;
   vec3 e = texture(u_upscaled, v_uv).rgb;
@@ -212,9 +215,22 @@ void main() {
   vec3 color = clamp((lobe * (b + d + h + f) + e) * rcpL, vec3(0.0), vec3(1.0));
   vec3 highPass = e - 0.25 * (b + d + f + h);
   float edgeMask = smoothstep(0.012, 0.16, rangeMax - rangeMin);
-  float detailStrength = mix(0.22, 0.85, userSharpness) * edgeMask;
-  vec3 guard = vec3(mix(0.025, 0.09, userSharpness));
-  color = clamp(color + highPass * detailStrength, max(vec3(0.0), min(mn4, e) - guard), min(vec3(1.0), max(mx4, e) + guard));
+  float detailStrength = (mix(0.35, 1.2, userSharpness) + tinySourceBoost * 0.85) * edgeMask;
+  float contrastStrength = (0.16 + tinySourceBoost * 0.32) * userSharpness;
+  vec3 guard = vec3(mix(0.04, 0.14, max(userSharpness, tinySourceBoost)));
+  color = clamp(
+    color + highPass * detailStrength + (e - vec3(0.5)) * contrastStrength * edgeMask,
+    max(vec3(0.0), min(mn4, e) - guard),
+    min(vec3(1.0), max(mx4, e) + guard)
+  );
+  float contrastLuma = max(luma(color), 0.001);
+  float boostedLuma = clamp(0.5 + (contrastLuma - 0.5) * (1.0 + userSharpness * (0.16 + tinySourceBoost * 0.38)), 0.0, 1.0);
+  color = clamp(color * (boostedLuma / contrastLuma), vec3(0.0), vec3(1.0));
+  float globalClarity = userSharpness * (0.08 + tinySourceBoost * 0.22);
+  float globalLuma = max(luma(color), 0.001);
+  vec3 saturated = mix(vec3(globalLuma), color, 1.0 + globalClarity);
+  float globalBoostedLuma = clamp(0.5 + (globalLuma - 0.5) * (1.0 + globalClarity), 0.0, 1.0);
+  color = clamp(saturated * (globalBoostedLuma / globalLuma), vec3(0.0), vec3(1.0));
 
   out_color = vec4(color, 1.0);
 }
@@ -263,6 +279,7 @@ export class WebGL2CrispPipeline implements FramePipeline {
   private readonly easuOutputSizeLocation: WebGLUniformLocation;
   private readonly rcasOutputTexelLocation: WebGLUniformLocation;
   private readonly rcasSharpnessLocation: WebGLUniformLocation;
+  private readonly rcasScaleRatioLocation: WebGLUniformLocation;
 
   private requestedWidth = 1;
   private requestedHeight = 1;
@@ -289,7 +306,7 @@ export class WebGL2CrispPipeline implements FramePipeline {
       desynchronized: options.desynchronized ?? true,
       powerPreference: 'high-performance',
       premultipliedAlpha: false,
-      preserveDrawingBuffer: false,
+      preserveDrawingBuffer: true,
       stencil: false,
     });
 
@@ -314,6 +331,7 @@ export class WebGL2CrispPipeline implements FramePipeline {
     this.easuOutputSizeLocation = getUniformLocation(gl, this.easuProgram, 'u_output_size');
     this.rcasOutputTexelLocation = getUniformLocation(gl, this.rcasProgram, 'u_output_texel');
     this.rcasSharpnessLocation = getUniformLocation(gl, this.rcasProgram, 'u_sharpness');
+    this.rcasScaleRatioLocation = getUniformLocation(gl, this.rcasProgram, 'u_scale_ratio');
 
     this.resize(canvas.width, canvas.height);
   }
@@ -385,8 +403,13 @@ export class WebGL2CrispPipeline implements FramePipeline {
     gl.useProgram(this.rcasProgram);
     gl.uniform2f(this.rcasOutputTexelLocation, 1 / output.width, 1 / output.height);
     gl.uniform1f(this.rcasSharpnessLocation, this.sharpness);
+    gl.uniform1f(
+      this.rcasScaleRatioLocation,
+      Math.min(output.width / sourceWidth, output.height / sourceHeight),
+    );
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     assertNoGlError(gl, 'running the Crisp RCAS-style pass');
+    Object.assign(this.status, { sharpness: this.sharpness });
   }
 
   destroy(): void {
