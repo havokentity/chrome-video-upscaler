@@ -1,7 +1,7 @@
 import { expect, test, chromium, type BrowserContext } from '@playwright/test';
 import { createServer } from 'node:http';
 import { createReadStream, existsSync, statSync } from 'node:fs';
-import { mkdir } from 'node:fs/promises';
+import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -78,8 +78,9 @@ const closeContext = async (context: BrowserContext | undefined): Promise<void> 
 };
 
 const createExtensionContext = async (workerIndex: number): Promise<BrowserContext> => {
-  const profileDir = path.join(tmpdir(), `mac-video-upscaler-e2e-${String(workerIndex)}`);
-  await mkdir(profileDir, { recursive: true });
+  const profileDir = await mkdtemp(
+    path.join(tmpdir(), `mac-video-upscaler-e2e-${String(workerIndex)}-`),
+  );
 
   return chromium.launchPersistentContext(profileDir, {
     channel: 'chromium',
@@ -88,6 +89,7 @@ const createExtensionContext = async (workerIndex: number): Promise<BrowserConte
       `--disable-extensions-except=${extensionPath}`,
       `--load-extension=${extensionPath}`,
       '--autoplay-policy=no-user-gesture-required',
+      '--disable-sync',
     ],
   });
 };
@@ -128,22 +130,33 @@ const writeExtensionSettings = async (
   await expect
     .poll(
       () =>
-        worker.evaluate((expectsSiteRules) => {
+        worker.evaluate(({ expectsSiteRules, nextSettings, nextSiteRules }) => {
           return new Promise<string | undefined>((resolve, reject) => {
-            chrome.storage.sync.get(['settings', 'siteRules'], (result) => {
+            const items: Record<string, unknown> =
+              nextSiteRules === undefined
+                ? { settings: nextSettings }
+                : { settings: nextSettings, siteRules: nextSiteRules };
+            chrome.storage.sync.set(items, () => {
               if (chrome.runtime.lastError) {
                 reject(new Error(chrome.runtime.lastError.message));
                 return;
               }
 
-              resolve(
-                !expectsSiteRules || (result.siteRules && typeof result.siteRules === 'object')
-                  ? (result.settings as Partial<UpscalerSettings> | undefined)?.mode
-                  : undefined,
-              );
+              chrome.storage.sync.get(['settings', 'siteRules'], (result) => {
+                if (chrome.runtime.lastError) {
+                  reject(new Error(chrome.runtime.lastError.message));
+                  return;
+                }
+
+                resolve(
+                  !expectsSiteRules || (result.siteRules && typeof result.siteRules === 'object')
+                    ? (result.settings as Partial<UpscalerSettings> | undefined)?.mode
+                    : undefined,
+                );
+              });
             });
           });
-        }, siteRules !== undefined),
+        }, { expectsSiteRules: siteRules !== undefined, nextSettings: settings, nextSiteRules: siteRules }),
       { timeout: 10_000 },
     )
     .toBe(settings.mode);
