@@ -7,6 +7,9 @@ import { buildHudRows, sampleRenderedFps } from './hud';
 
 const OVERLAY_CLASS = 'mac-video-upscaler-overlay';
 const HUD_CLASS = 'mac-video-upscaler-hud';
+const PRESENTATION_PROBE_SIZE = 24;
+const PRESENTATION_PROBE_FRAME_DELAY = 3;
+const PRESENTATION_PROBE_MAX_ATTEMPTS = 8;
 
 export class VideoOverlay {
   readonly canvas: HTMLCanvasElement;
@@ -21,10 +24,16 @@ export class VideoOverlay {
   private readonly previousVideoOpacity: string;
   private renderedFps: number | undefined;
   private renderedFrameTimestamps: readonly number[] = [];
+  private renderedFrameCount = 0;
+  private presentationReady = false;
+  private presentationProbePending = false;
+  private presentationProbeAttempts = 0;
+  private shouldHideNativeVideo = false;
 
   constructor(private readonly video: HTMLVideoElement) {
     this.canvas = document.createElement('canvas');
     this.canvas.className = OVERLAY_CLASS;
+    this.canvas.style.opacity = '0';
     this.hud = document.createElement('div');
     this.hud.className = HUD_CLASS;
     this.hud.hidden = true;
@@ -47,6 +56,7 @@ export class VideoOverlay {
 
     const siteResolution = resolveSiteSettings(globalSettings, siteRules, location.hostname);
     const settings = siteResolution.settings;
+    this.shouldHideNativeVideo = settings.enabled;
     this.pipeline = await createPipeline(this.canvas, this.video, settings);
     if (siteResolution.reason === 'block-list' || siteResolution.reason === 'allow-list-miss') {
       this.pipeline.status.reason =
@@ -54,7 +64,10 @@ export class VideoOverlay {
           ? `Site blocked by ${siteResolution.matchedBlockPattern ?? 'site rule'}.`
           : 'Site not included in allow list.';
     }
-    this.video.style.opacity = settings.enabled ? '0' : this.previousVideoOpacity;
+    if (!settings.enabled) {
+      this.canvas.style.opacity = '0';
+      this.video.style.opacity = this.previousVideoOpacity;
+    }
     this.renderHud();
     this.scheduleFrame();
     return true;
@@ -120,6 +133,7 @@ export class VideoOverlay {
       this.syncBounds();
       this.pipeline?.renderFrame();
       this.recordRenderedFrame();
+      this.schedulePresentationProbe();
       if (this.hudVisible) {
         this.renderHud();
       }
@@ -180,8 +194,96 @@ export class VideoOverlay {
   }
 
   private recordRenderedFrame(): void {
+    this.renderedFrameCount += 1;
     const sample = sampleRenderedFps(this.renderedFrameTimestamps, performance.now());
     this.renderedFrameTimestamps = sample.timestamps;
     this.renderedFps = sample.fps;
   }
+
+  private schedulePresentationProbe(): void {
+    if (
+      this.presentationReady ||
+      this.presentationProbePending ||
+      !this.shouldHideNativeVideo ||
+      this.renderedFrameCount < PRESENTATION_PROBE_FRAME_DELAY ||
+      this.presentationProbeAttempts >= PRESENTATION_PROBE_MAX_ATTEMPTS
+    ) {
+      return;
+    }
+
+    this.presentationProbePending = true;
+    this.probeCanvasPresentation();
+  }
+
+  private probeCanvasPresentation(): void {
+    try {
+      const presentationLooksUsable = canvasHasVisiblePixels(this.canvas);
+      this.presentationProbeAttempts += 1;
+
+      if (this.disposed) {
+        return;
+      }
+
+      if (presentationLooksUsable) {
+        this.presentationReady = true;
+        this.canvas.style.opacity = '1';
+        this.video.style.opacity = '0';
+        if (this.hudVisible) {
+          this.renderHud();
+        }
+        return;
+      }
+
+      this.canvas.style.opacity = '0';
+      this.video.style.opacity = this.previousVideoOpacity;
+      if (this.pipeline?.status) {
+        this.pipeline.status.reason =
+          this.presentationProbeAttempts >= PRESENTATION_PROBE_MAX_ATTEMPTS
+            ? 'Canvas output stayed blank; showing native video.'
+            : 'Checking canvas output before hiding native video.';
+      }
+      if (this.hudVisible) {
+        this.renderHud();
+      }
+    } finally {
+      this.presentationProbePending = false;
+    }
+  }
 }
+
+export const canvasHasVisiblePixels = (canvas: HTMLCanvasElement): boolean => {
+  if (canvas.width <= 0 || canvas.height <= 0) {
+    return false;
+  }
+
+  const sampleCanvas = document.createElement('canvas');
+  sampleCanvas.width = PRESENTATION_PROBE_SIZE;
+  sampleCanvas.height = PRESENTATION_PROBE_SIZE;
+  const context = sampleCanvas.getContext('2d', { willReadFrequently: true });
+  if (!context) {
+    return true;
+  }
+
+  let pixels: Uint8ClampedArray;
+  try {
+    context.drawImage(canvas, 0, 0, PRESENTATION_PROBE_SIZE, PRESENTATION_PROBE_SIZE);
+    pixels = context.getImageData(0, 0, PRESENTATION_PROBE_SIZE, PRESENTATION_PROBE_SIZE).data;
+  } catch {
+    return false;
+  }
+  let maxLuma = 0;
+  let alphaPixels = 0;
+
+  for (let index = 0; index < pixels.length; index += 4) {
+    const alpha = pixels[index + 3];
+    if (alpha <= 4) {
+      continue;
+    }
+
+    alphaPixels += 1;
+    const luma = pixels[index] * 0.2126 + pixels[index + 1] * 0.7152 + pixels[index + 2] * 0.0722;
+    maxLuma = Math.max(maxLuma, luma);
+  }
+
+  return alphaPixels > 0 && maxLuma > 6;
+};

@@ -39,3 +39,37 @@ export const shouldBypassVideo = (video: HTMLVideoElement): boolean => {
 
   return Boolean(video.closest('.ad-showing'));
 };
+
+export const getVisibleVideoArea = (video: HTMLVideoElement): number => {
+  const rect = video.getBoundingClientRect();
+  const style = window.getComputedStyle(video);
+
+  if (
+    !video.isConnected ||
+    rect.width < 24 ||
+    rect.height < 24 ||
+    style.display === 'none' ||
+    style.visibility === 'hidden'
+  ) {
+    return 0;
+  }
+
+  return rect.width * rect.height;
+};
+
+export const selectLargestVisibleVideo = (
+  videos: Iterable<HTMLVideoElement>,
+): HTMLVideoElement | undefined => {
+  let selected: HTMLVideoElement | undefined;
+  let selectedArea = 0;
+
+  for (const video of videos) {
+    const area = getVisibleVideoArea(video);
+    if (area > selectedArea) {
+      selected = video;
+      selectedArea = area;
+    }
+  }
+
+  return selected;
+};

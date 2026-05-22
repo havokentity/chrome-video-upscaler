@@ -227,6 +227,7 @@ test('Crisp mode uses the WebGL2 1.5x upscaler on a local MP4 video', async ({
 
     await page.keyboard.press('Control+Shift+U');
     await expect(page.locator('.mac-video-upscaler-hud')).toContainText('webgl2 crisp');
+    await expect(page.locator('#sample-video')).toHaveCSS('opacity', '0', { timeout: 10_000 });
 
     const dimensions = await overlay.evaluate((canvas) => {
       const rect = canvas.getBoundingClientRect();

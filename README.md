@@ -72,6 +72,6 @@ Manual Apple Silicon GPU timing numbers are still pending. The first measured ta
 
 ## Licensing
 
-Original extension code is MIT-licensed. Third-party MIT shader ports remain MIT with upstream headers preserved. LGPL shader components, including RAVU-derived files, live under `src/upscaler/modes/*/` with original notices intact, full license text in `LICENSES/`, and per-file attribution in `NOTICE`.
+Original extension code is MIT-licensed: Copyright (c) 2026 Rajesh Peter D'Monte. Third-party MIT shader ports remain MIT with upstream headers preserved. LGPL shader components, including RAVU-derived files, live under `src/upscaler/modes/*/` with original notices intact, full license text in `LICENSES/`, and per-file attribution in `NOTICE`.
 
 Because this repository is public and ships source for the integrated shader components, users can inspect, modify, and rebuild the extension. The LGPL components are kept clearly separated and attributed.

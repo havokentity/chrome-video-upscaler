@@ -1,7 +1,9 @@
+import { detectSite, selectLargestVisibleVideo } from '../common/site';
 import { VideoOverlay } from '../overlay/video-overlay';
 
 const overlays = new WeakMap<HTMLVideoElement, VideoOverlay>();
 const pendingVideos = new WeakSet<HTMLVideoElement>();
+let youtubeRescanHandle: number | undefined;
 
 const attachVideo = (video: HTMLVideoElement): void => {
   if (overlays.has(video) || pendingVideos.has(video)) {
@@ -14,12 +16,51 @@ const attachVideo = (video: HTMLVideoElement): void => {
     pendingVideos.delete(video);
 
     if (mounted) {
+      if (
+        detectSite() === 'youtube' &&
+        selectLargestVisibleVideo(collectVideos(document)) !== video
+      ) {
+        overlay.destroy();
+        return;
+      }
+
       overlays.set(video, overlay);
     }
   });
 };
 
+const collectVideos = (root: ParentNode = document): HTMLVideoElement[] =>
+  Array.from(root.querySelectorAll('video'));
+
+const syncYouTubeVideos = (): void => {
+  const videos = collectVideos(document);
+  const selectedVideo = selectLargestVisibleVideo(videos);
+
+  if (!selectedVideo && videos.length > 0 && youtubeRescanHandle === undefined) {
+    youtubeRescanHandle = window.setTimeout(() => {
+      youtubeRescanHandle = undefined;
+      syncYouTubeVideos();
+    }, 250);
+  }
+
+  videos.forEach((video) => {
+    if (video === selectedVideo) {
+      attachVideo(video);
+      return;
+    }
+
+    overlays.get(video)?.destroy();
+    overlays.delete(video);
+    pendingVideos.delete(video);
+  });
+};
+
 const scanVideos = (root: ParentNode = document): void => {
+  if (detectSite() === 'youtube') {
+    syncYouTubeVideos();
+    return;
+  }
+
   root.querySelectorAll('video').forEach((video) => {
     attachVideo(video);
   });
@@ -84,6 +125,9 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
 
 window.addEventListener('pagehide', () => {
   observer.disconnect();
+  if (youtubeRescanHandle !== undefined) {
+    window.clearTimeout(youtubeRescanHandle);
+  }
   document.querySelectorAll('video').forEach((video) => {
     overlays.get(video)?.destroy();
     overlays.delete(video);

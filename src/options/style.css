@@ -90,6 +90,14 @@ legend {
   line-height: 1.4;
 }
 
+footer {
+  border-top: 1px solid color-mix(in srgb, CanvasText 14%, transparent);
+  padding-top: 14px;
+  color: color-mix(in srgb, CanvasText 58%, transparent);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 [hidden] {
   display: none;
 }
