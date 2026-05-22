@@ -1,6 +1,7 @@
 import type { UpscalerMode } from '../common/modes';
 
 export const MODE_LABELS: Record<UpscalerMode, string> = {
+  none: 'None',
   auto: 'Auto',
   crisp: 'Crisp (FSR)',
   sharpen: 'Sharpen (CAS)',
@@ -14,6 +15,7 @@ export const MODE_LABELS: Record<UpscalerMode, string> = {
 };
 
 export const MODE_DESCRIPTIONS: Record<UpscalerMode, string> = {
+  none: 'Leaves the original video alone with no filter or upscaler.',
   auto: 'Automatically chooses among the implemented lightweight modes.',
   crisp: 'Fast FSR-style upscaling for general video.',
   sharpen: 'CAS-style native-resolution sharpening.',
@@ -27,6 +29,7 @@ export const MODE_DESCRIPTIONS: Record<UpscalerMode, string> = {
 };
 
 const IMPLEMENTED_MODES = new Set<UpscalerMode>([
+  'none',
   'auto',
   'crisp',
   'sharpen',
@@ -51,6 +54,7 @@ export const isImplementedMode = (mode: UpscalerMode): boolean => IMPLEMENTED_MO
 
 export const getModeControlState = (mode: UpscalerMode): ModeControlState => {
   const implemented = isImplementedMode(mode);
+  const isNone = mode === 'none';
   const isSharpen = mode === 'sharpen';
   const isSmooth = mode === 'smooth';
   const isAnime = mode === 'anime';
@@ -60,11 +64,13 @@ export const getModeControlState = (mode: UpscalerMode): ModeControlState => {
     animeVisible: mode === 'anime',
     implemented,
     ravuVisible: mode === 'neural-pro',
-    scaleVisible: !isSharpen,
+    scaleVisible: !isNone && !isSharpen,
     sharpnessLabel: isSharpen ? 'CAS sharpness' : 'FSR sharpness',
-    sharpnessVisible: !isSmooth && !isAnime && !isFunFilter,
+    sharpnessVisible: !isNone && !isSmooth && !isAnime && !isFunFilter,
     supportNote: implemented
-      ? isSharpen
+      ? isNone
+        ? 'Native video passthrough; no overlay rendering is applied.'
+        : isSharpen
         ? 'Sharpen renders at 1.0x and ignores scale.'
         : isAnime
           ? 'Anime is WebGPU-only and uses the Anime4K sub-mode control.'

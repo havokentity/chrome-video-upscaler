@@ -4,6 +4,7 @@ import { getModeControlState, isImplementedMode, MODE_LABELS } from '../src/opti
 
 describe('options UI model', () => {
   it('labels currently routed modes with user-facing names', () => {
+    expect(MODE_LABELS.none).toBe('None');
     expect(MODE_LABELS.auto).toBe('Auto');
     expect(MODE_LABELS.crisp).toContain('FSR');
     expect(MODE_LABELS.sharpen).toContain('CAS');
@@ -15,6 +16,7 @@ describe('options UI model', () => {
   });
 
   it('keeps future modes visible but disabled', () => {
+    expect(isImplementedMode('none')).toBe(true);
     expect(isImplementedMode('anime')).toBe(true);
     expect(isImplementedMode('predator')).toBe(true);
     expect(isImplementedMode('neural-lite')).toBe(false);
@@ -23,6 +25,12 @@ describe('options UI model', () => {
   });
 
   it('shows mode-specific controls for implemented modes', () => {
+    expect(getModeControlState('none')).toMatchObject({
+      implemented: true,
+      scaleVisible: false,
+      sharpnessVisible: false,
+      supportNote: 'Native video passthrough; no overlay rendering is applied.',
+    });
     expect(getModeControlState('crisp')).toMatchObject({
       scaleVisible: true,
       sharpnessLabel: 'FSR sharpness',

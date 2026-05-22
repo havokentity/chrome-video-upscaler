@@ -56,8 +56,8 @@ export class VideoOverlay {
 
     const siteResolution = resolveSiteSettings(globalSettings, siteRules, location.hostname);
     const settings = siteResolution.settings;
-    this.shouldHideNativeVideo = settings.enabled;
     this.pipeline = await createPipeline(this.canvas, this.video, settings);
+    this.shouldHideNativeVideo = settings.enabled && this.pipeline.status.backend !== 'disabled';
     if (siteResolution.reason === 'block-list' || siteResolution.reason === 'allow-list-miss') {
       this.pipeline.status.reason =
         siteResolution.reason === 'block-list'

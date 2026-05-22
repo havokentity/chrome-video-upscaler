@@ -357,8 +357,10 @@ test('site block list disables the overlay pipeline without hiding the video', a
 const routedModeCases: Array<{
   readonly mode: UpscalerMode;
   readonly expectedHudText: string;
+  readonly expectedVideoOpacity?: string;
   readonly settings?: Partial<UpscalerSettings>;
 }> = [
+  { mode: 'none', expectedHudText: 'disabled none', expectedVideoOpacity: '1' },
   { mode: 'sharpen', expectedHudText: 'sharpen' },
   { mode: 'anime', expectedHudText: 'anime', settings: { animeSubMode: 'mode-a' } },
   { mode: 'smooth', expectedHudText: 'smooth' },
@@ -369,7 +371,7 @@ const routedModeCases: Array<{
   { mode: 'neural-pro', expectedHudText: 'neural-pro' },
 ];
 
-for (const { mode, expectedHudText, settings } of routedModeCases) {
+for (const { mode, expectedHudText, expectedVideoOpacity, settings } of routedModeCases) {
   test(`${mode} mode reaches its routed pipeline status`, async ({ browserName }, testInfo) => {
     test.skip(browserName !== 'chromium', 'Chrome extensions can only be loaded in Chromium.');
 
@@ -397,6 +399,9 @@ for (const { mode, expectedHudText, settings } of routedModeCases) {
       await expect(page.locator('.mac-video-upscaler-hud')).toContainText(expectedHudText, {
         timeout: 10_000,
       });
+      if (expectedVideoOpacity !== undefined) {
+        await expect(page.locator('#sample-video')).toHaveCSS('opacity', expectedVideoOpacity);
+      }
     } finally {
       await closeContext(context);
       await server.close();

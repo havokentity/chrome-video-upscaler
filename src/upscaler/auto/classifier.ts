@@ -1,6 +1,6 @@
 import type { UpscalerMode } from '../../common/modes';
 
-export type AutoSelectableMode = Exclude<UpscalerMode, 'auto' | 'neural-pro'>;
+export type AutoSelectableMode = Exclude<UpscalerMode, 'none' | 'auto' | 'neural-pro'>;
 
 export interface FrameSignature {
   colorVariance: number;

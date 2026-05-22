@@ -1,4 +1,5 @@
 export const UPSCALER_MODES = [
+  'none',
   'auto',
   'crisp',
   'sharpen',

@@ -3,6 +3,7 @@ import { loadSettings, patchSettings } from '../common/storage';
 import './style.css';
 
 const MODE_LABELS: Record<UpscalerMode, string> = {
+  none: 'None',
   auto: 'Auto',
   crisp: 'Crisp (FSR)',
   sharpen: 'Sharpen (CAS)',
@@ -16,6 +17,7 @@ const MODE_LABELS: Record<UpscalerMode, string> = {
 };
 
 const MODE_NOTES: Record<UpscalerMode, string> = {
+  none: 'No filter or upscaler. Shows the original video.',
   auto: 'Picks Crisp, Smooth, or Sharpen-friendly defaults from the video. Neural-Pro is never auto-selected.',
   crisp: 'Fast FSR-style upscaling for live action and general video.',
   sharpen: 'CAS-style edge enhancement at native size.',
@@ -29,6 +31,7 @@ const MODE_NOTES: Record<UpscalerMode, string> = {
 };
 
 const IMPLEMENTED_MODES = new Set<UpscalerMode>([
+  'none',
   'auto',
   'crisp',
   'sharpen',
@@ -90,12 +93,13 @@ const updateModeControls = (): void => {
   const isCrispLike = selectedMode === 'auto' || selectedMode === 'crisp';
   const isSmooth = selectedMode === 'smooth';
   const isAnime = selectedMode === 'anime';
+  const isNone = selectedMode === 'none';
   const isFunFilter =
     selectedMode === 'edge' || selectedMode === 'night-vision' || selectedMode === 'predator';
 
   modeNote.textContent = MODE_NOTES[selectedMode];
-  scaleField.hidden = isSharpen;
-  sharpnessField.hidden = isSmooth || isAnime || isFunFilter;
+  scaleField.hidden = isNone || isSharpen;
+  sharpnessField.hidden = isNone || isSmooth || isAnime || isFunFilter;
   sharpnessLabel.textContent = isSharpen ? 'CAS sharpness' : 'FSR sharpness';
   sharpnessValue.value = sharpness.toFixed(2);
   sharpnessValue.textContent = sharpness.toFixed(2);
@@ -106,7 +110,9 @@ const updateModeControls = (): void => {
   supportNote.textContent = IMPLEMENTED_MODES.has(selectedMode)
     ? isSharpen
       ? 'Scale is fixed at 1.0x for Sharpen.'
-      : isCrispLike
+      : isNone
+        ? 'The extension stays enabled, but the native video is passed through unchanged.'
+        : isCrispLike
         ? 'Crisp uses WebGPU first and falls back to WebGL2.'
         : isAnime
           ? 'Anime requires WebGPU and uses the selected Anime4K sub-mode.'

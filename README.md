@@ -24,6 +24,7 @@ pnpm dev
 
 | Mode | Backend | License | Notes |
 | --- | --- | --- | --- |
+| None | Disabled | MIT | Passthrough option for native video with no filter or upscaling. |
 | Auto | WebGPU/WebGL2 | MIT | Cheap first-frame classifier; Neural-Pro remains opt-in. |
 | Crisp | WebGPU + WebGL2 | MIT | FSR 1.0-inspired EASU 12-tap reconstruction plus RCAS-style limiter/sharpener. WebGPU currently uses the f32 quality path while the f16 port is revalidated. |
 | Sharpen | WebGPU + WebGL2 | MIT | CAS-style 1.0x sharpen with WebGPU and WebGL2 paths. |

@@ -74,6 +74,10 @@ export const createPipeline = async (
 
   let webgpuFailure: string | undefined;
   const requestedMode = settings.mode;
+  if (requestedMode === 'none') {
+    return new DisabledPipeline('Native video passthrough active.', 'none');
+  }
+
   const autoClassification = requestedMode === 'auto' ? classifyVideoFrame(video) : undefined;
   const selectedMode = autoClassification?.mode ?? requestedMode;
   const mode = isImplementedMode(selectedMode) ? selectedMode : 'crisp';
