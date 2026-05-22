@@ -2,7 +2,7 @@
 
 Metal-tuned GPU video upscaling for Chrome on macOS. The project targets Manifest V3, WebGPU through Dawn/Tint/Metal, and a WebGL2 fallback for the fast modes.
 
-This repository is being built in ordered milestones. The current build mounts a video overlay, performs a 1:1 frame copy through WebGPU or WebGL2, and includes the first WebGL2 Crisp mode at fixed 1.5x with popup-controlled sharpness.
+This repository is being built in ordered milestones. The current build mounts a video overlay, performs a 1:1 frame copy through WebGPU or WebGL2, and routes Auto, Crisp, Sharpen, and Smooth through working shader paths.
 
 ## Install for Development
 
@@ -25,10 +25,10 @@ pnpm dev
 | Mode | Backend | License | Notes |
 | --- | --- | --- | --- |
 | Auto | WebGPU/WebGL2 | MIT | Cheap first-frame classifier; Neural-Pro remains opt-in. |
-| Crisp | WebGPU + WebGL2 | MIT | WebGL2 milestone has an FSR 1.0-shaped EASU/RCAS approximation; exact AMD constants/taps land in the quality pass. |
-| Sharpen | WebGPU + WebGL2 | MIT | CAS at 1.0x. |
+| Crisp | WebGPU + WebGL2 | MIT | FSR 1.0-shaped EASU/RCAS approximation with WebGPU f16/f32 and WebGL2 fallback; exact AMD constants/taps land in the quality pass. |
+| Sharpen | WebGPU + WebGL2 | MIT | CAS-style 1.0x sharpen with WebGPU and WebGL2 paths. |
 | Anime | WebGPU | MIT | Anime4K v4 Mode A and A+A. |
-| Smooth | WebGPU | Public-domain math | EWA Lanczos / Jinc-windowed Jinc. |
+| Smooth | WebGPU | Public-domain math | Lanczos/Jinc-style WebGPU upscaler; fuller EWA pass remains planned. |
 | Neural-Lite | WebGPU | MIT, pending source verification | ArtCNN smallest practical variant first. |
 | Neural-Pro | WebGPU | LGPL-3.0 | RAVU-Zoom and RAVU-Lite with attribution. |
 
@@ -36,12 +36,13 @@ pnpm dev
 
 The content script finds visible `<video>` elements, mounts a pointer-transparent canvas over the video box, and hands frames to a reusable upscaler pipeline. The original video is kept in the page for audio, controls, captions, fullscreen, and site event handling, then visually hidden while the overlay presents processed frames.
 
-WebGPU is preferred on macOS Chrome 121+; WebGL2 is retained as a fallback for Crisp and Sharpen. The current WebGPU path uploads frames with `copyExternalImageToTexture` and presents them through a tiny WGSL render pass. Compute upscalers will use small coherent workgroups, half precision where it is visually safe, and texture/bind-group reuse to avoid per-frame allocation churn.
+WebGPU is preferred on macOS Chrome 121+; WebGL2 is retained as a fallback for Crisp and Sharpen. The current WebGPU paths upload frames with `copyExternalImageToTexture`, reuse GPU resources, validate WGSL through Tint to MSL, and use `8x8x1` compute workgroups where compute is active. Crisp uses `shader-f16` when available and falls back to f32.
 
 ## Verification Status
 
 - Generic HTML5 MP4 fixture: automated Playwright smoke test loads the unpacked extension from `dist`, mounts the overlay, and verifies nonzero canvas dimensions.
 - WebGL2 Crisp: automated Playwright smoke test writes extension settings, activates Crisp, verifies HUD mode text, and checks 1.5x backing resolution.
+- WebGPU shaders: CI validates WGSL to MSL with Dawn Tint.
 - YouTube: automated Chromium smoke verified the overlay on `https://www.youtube.com/watch?v=jNQXAC9IVRw`.
 - Chrome stable: manual `chrome://extensions` loading is the intended verification path. Playwright-launched Chrome stable profiles did not load the unpacked extension in this environment, while Playwright Chromium did.
 

@@ -2,11 +2,16 @@
 
 ## v0.1.0
 
-- Scaffold MV3 extension with Vite, strict TypeScript, CRXJS, CI, and license structure.
-- Add overlay plumbing with 1:1 frame copy and local sample-video smoke tests.
-- Implement Crisp and Sharpen on WebGL2, then WebGPU.
-- Add Smooth, Anime, Neural-Lite, and opt-in Neural-Pro.
-- Add auto classifier, HUD, per-site storage, DRM/CORS detection, screenshots, benchmarks, and release notes.
+- [x] Scaffold MV3 extension with Vite, strict TypeScript, CRXJS, CI, and license structure.
+- [x] Add overlay plumbing with 1:1 frame copy and local sample-video smoke tests.
+- [x] Implement Crisp on WebGL2 and WebGPU.
+- [x] Implement Sharpen on WebGL2 and WebGPU.
+- [x] Add Smooth WebGPU path.
+- [x] Add auto classifier and route to implemented modes.
+- [ ] Add Anime4K v4 Mode A and A+A.
+- [ ] Add Neural-Lite / ArtCNN.
+- [ ] Add opt-in Neural-Pro / RAVU with LGPL attribution.
+- [ ] Finish HUD metrics, per-site storage, DRM/CORS detection, screenshots, benchmarks, and release notes.
 
 ## Explicit Non-Goals
 

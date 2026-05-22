@@ -2,9 +2,11 @@ Mac Video Upscaler
 Copyright (c) 2026 Rajesh Peter D'Monte
 License: MIT
 
-This scaffold does not yet bundle third-party shader source.
+This repository currently contains original shader approximations shaped after
+well-known open algorithms. Exact third-party shader ports must preserve
+upstream headers and add per-file attribution here before import.
 
-Planned attributions before integration:
+Planned attributions before exact shader integration:
 
 - AMD FidelityFX Super Resolution 1.0 EASU + RCAS, MIT.
 - AMD Contrast Adaptive Sharpening, MIT.
