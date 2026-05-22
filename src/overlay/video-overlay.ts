@@ -1,7 +1,9 @@
-import { loadSettings } from '../common/storage';
+import { resolveSiteSettings } from '../common/site-rules';
+import { loadSettings, loadSiteRules } from '../common/storage';
 import { shouldBypassVideo } from '../common/site';
 import { classifyFrameAccessError } from '../content/frame-access-probe';
 import { createPipeline, type FramePipeline } from '../upscaler/pipeline';
+import { buildHudRows, sampleRenderedFps } from './hud';
 
 const OVERLAY_CLASS = 'mac-video-upscaler-overlay';
 const HUD_CLASS = 'mac-video-upscaler-hud';
@@ -17,6 +19,8 @@ export class VideoOverlay {
   private hudVisible = false;
   private mounted = false;
   private readonly previousVideoOpacity: string;
+  private renderedFps: number | undefined;
+  private renderedFrameTimestamps: readonly number[] = [];
 
   constructor(private readonly video: HTMLVideoElement) {
     this.canvas = document.createElement('canvas');
@@ -36,12 +40,20 @@ export class VideoOverlay {
     document.documentElement.append(this.canvas, this.hud);
     this.syncBounds();
 
-    const settings = await loadSettings();
+    const [globalSettings, siteRules] = await Promise.all([loadSettings(), loadSiteRules()]);
     if (this.isDisposed()) {
       return false;
     }
 
+    const siteResolution = resolveSiteSettings(globalSettings, siteRules, location.hostname);
+    const settings = siteResolution.settings;
     this.pipeline = await createPipeline(this.canvas, this.video, settings);
+    if (siteResolution.reason === 'block-list' || siteResolution.reason === 'allow-list-miss') {
+      this.pipeline.status.reason =
+        siteResolution.reason === 'block-list'
+          ? `Site blocked by ${siteResolution.matchedBlockPattern ?? 'site rule'}.`
+          : 'Site not included in allow list.';
+    }
     this.video.style.opacity = settings.enabled ? '0' : this.previousVideoOpacity;
     this.renderHud();
     this.scheduleFrame();
@@ -51,6 +63,9 @@ export class VideoOverlay {
   toggleHud(): void {
     this.hudVisible = !this.hudVisible;
     this.hud.hidden = !this.hudVisible;
+    if (this.hudVisible) {
+      this.renderHud();
+    }
   }
 
   destroy(): void {
@@ -104,6 +119,10 @@ export class VideoOverlay {
     try {
       this.syncBounds();
       this.pipeline?.renderFrame();
+      this.recordRenderedFrame();
+      if (this.hudVisible) {
+        this.renderHud();
+      }
       this.scheduleFrame();
     } catch (error) {
       const frameAccess = classifyFrameAccessError(error);
@@ -146,13 +165,23 @@ export class VideoOverlay {
   }
 
   private renderHud(): void {
-    const status = this.pipeline?.status;
-    if (!status) {
-      this.hud.textContent = 'Mac Video Upscaler: initializing';
-      return;
-    }
+    const title = document.createElement('div');
+    title.textContent = 'Mac Video Upscaler';
 
-    const label = status.mode ? `${status.backend} ${status.mode}` : status.backend;
-    this.hud.textContent = `Mac Video Upscaler: ${label}${status.reason ? ` - ${status.reason}` : ''}`;
+    const rows = buildHudRows(this.pipeline?.status, {
+      renderedFps: this.renderedFps,
+    }).map((row) => {
+      const element = document.createElement('div');
+      element.textContent = `${row.label}: ${row.value}`;
+      return element;
+    });
+
+    this.hud.replaceChildren(title, ...rows);
+  }
+
+  private recordRenderedFrame(): void {
+    const sample = sampleRenderedFps(this.renderedFrameTimestamps, performance.now());
+    this.renderedFrameTimestamps = sample.timestamps;
+    this.renderedFps = sample.fps;
   }
 }

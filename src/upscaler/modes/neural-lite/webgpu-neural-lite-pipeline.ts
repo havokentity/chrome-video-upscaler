@@ -1,5 +1,6 @@
 import type { FramePipeline, PipelineStatus } from '../../pipeline';
 import { ARTCNN_UPSTREAM } from './artcnn-attribution';
+import { ARTCNN_C4F16_PORT_PLAN, getArtCnnPortSummary } from './artcnn-port';
 
 const MIN_SCALE = 1;
 const MAX_SCALE = 2;
@@ -26,6 +27,8 @@ export interface WebGpuNeuralLitePipelineStatus extends PipelineStatus {
   scale: number;
   variant: NeuralLiteVariant;
   upstreamCommit: string;
+  portStageCount: number;
+  previewShader: string;
 }
 
 export interface NeuralLiteOutputSize {
@@ -83,6 +86,8 @@ export class WebGpuNeuralLitePipeline implements FramePipeline {
       scale: this.scale,
       sourceHeight: this.video.videoHeight,
       sourceWidth: this.video.videoWidth,
+      portStageCount: ARTCNN_C4F16_PORT_PLAN.stages.length,
+      previewShader: ARTCNN_C4F16_PORT_PLAN.localPreviewShader,
       upstreamCommit: ARTCNN_UPSTREAM.verifiedCommit,
       variant: this.variant,
     };
@@ -171,4 +176,4 @@ export const computeNeuralLiteOutputSize = ({
 };
 
 export const getNeuralLiteDisabledReason = (): string =>
-  `Neural-Lite ArtCNN is reserved for a verified WGSL port of ${ARTCNN_UPSTREAM.smallestRealtimeVariant.name} from ${ARTCNN_UPSTREAM.repository} at ${ARTCNN_UPSTREAM.verifiedCommit}; upstream license MIT.`;
+  `${getArtCnnPortSummary()} Source: ${ARTCNN_UPSTREAM.repository} at ${ARTCNN_UPSTREAM.verifiedCommit}; upstream license MIT.`;

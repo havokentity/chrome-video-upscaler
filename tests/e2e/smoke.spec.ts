@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 import { DEFAULT_SETTINGS, type UpscalerSettings } from '../../src/common/modes';
+import type { SiteRulesState } from '../../src/common/site-rules';
 import type { UpscalerMode } from '../../src/common/modes';
 
 interface StaticServer {
@@ -94,12 +95,13 @@ const createExtensionContext = async (workerIndex: number): Promise<BrowserConte
 const writeExtensionSettings = async (
   context: BrowserContext,
   settings: UpscalerSettings,
+  siteRules?: SiteRulesState,
 ): Promise<void> => {
   const worker =
     context.serviceWorkers()[0] ??
     (await context.waitForEvent('serviceworker', { timeout: 10_000 }));
 
-  await worker.evaluate((nextSettings) => {
+  await worker.evaluate(({ nextSettings, nextSiteRules }) => {
     return new Promise<void>((resolve, reject) => {
       chrome.storage.sync.clear(() => {
         if (chrome.runtime.lastError) {
@@ -107,7 +109,11 @@ const writeExtensionSettings = async (
           return;
         }
 
-        chrome.storage.sync.set({ settings: nextSettings }, () => {
+        const items: Record<string, unknown> =
+          nextSiteRules === undefined
+            ? { settings: nextSettings }
+            : { settings: nextSettings, siteRules: nextSiteRules };
+        chrome.storage.sync.set(items, () => {
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message));
             return;
@@ -117,30 +123,27 @@ const writeExtensionSettings = async (
         });
       });
     });
-  }, settings);
+  }, { nextSettings: settings, nextSiteRules: siteRules });
 
   await expect
     .poll(
       () =>
-        worker.evaluate((nextSettings) => {
+        worker.evaluate((expectsSiteRules) => {
           return new Promise<string | undefined>((resolve, reject) => {
-            chrome.storage.sync.set({ settings: nextSettings }, () => {
+            chrome.storage.sync.get(['settings', 'siteRules'], (result) => {
               if (chrome.runtime.lastError) {
                 reject(new Error(chrome.runtime.lastError.message));
                 return;
               }
 
-              chrome.storage.sync.get('settings', (result) => {
-                if (chrome.runtime.lastError) {
-                  reject(new Error(chrome.runtime.lastError.message));
-                  return;
-                }
-
-                resolve((result.settings as Partial<UpscalerSettings> | undefined)?.mode);
-              });
+              resolve(
+                !expectsSiteRules || (result.siteRules && typeof result.siteRules === 'object')
+                  ? (result.settings as Partial<UpscalerSettings> | undefined)?.mode
+                  : undefined,
+              );
             });
           });
-        }, settings),
+        }, siteRules !== undefined),
       { timeout: 10_000 },
     )
     .toBe(settings.mode);
@@ -242,6 +245,49 @@ test('Crisp mode uses the WebGL2 1.5x upscaler on a local MP4 video', async ({
     expect(dimensions.cssHeight).toBe(180);
     expect(dimensions.canvasWidth).toBe(Math.round(dimensions.sourceWidth * 1.5));
     expect(dimensions.canvasHeight).toBe(Math.round(dimensions.sourceHeight * 1.5));
+  } finally {
+    await closeContext(context);
+    await server.close();
+  }
+});
+
+test('site block list disables the overlay pipeline without hiding the video', async ({
+  browserName,
+}, testInfo) => {
+  test.skip(browserName !== 'chromium', 'Chrome extensions can only be loaded in Chromium.');
+
+  expect(
+    existsSync(path.join(extensionPath, 'manifest.json')),
+    'Run `pnpm build` before `pnpm test:e2e`; this test loads the unpacked extension from dist.',
+  ).toBe(true);
+
+  const server = await startStaticServer(fixturesPath);
+  let context: BrowserContext | undefined;
+
+  try {
+    context = await createExtensionContext(testInfo.workerIndex + 150);
+    await writeExtensionSettings(
+      context,
+      {
+        ...DEFAULT_SETTINGS,
+        mode: 'crisp',
+      },
+      {
+        allowList: [],
+        blockList: ['127.0.0.1'],
+        rules: [],
+      },
+    );
+
+    const page = context.pages()[0] ?? (await context.newPage());
+    await page.goto(server.origin, { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator('.mac-video-upscaler-overlay')).toHaveCount(1, { timeout: 10_000 });
+    await expect(page.locator('#sample-video')).toHaveCSS('opacity', '1');
+
+    await page.keyboard.press('Control+Shift+U');
+    await expect(page.locator('.mac-video-upscaler-hud')).toContainText('disabled');
+    await expect(page.locator('.mac-video-upscaler-hud')).toContainText('Site blocked by 127.0.0.1');
   } finally {
     await closeContext(context);
     await server.close();

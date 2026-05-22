@@ -12,9 +12,12 @@
 - [x] Verify Neural-Lite / ArtCNN license and add disabled skeleton.
 - [x] Add opt-in Neural-Pro / RAVU attribution skeleton.
 - [x] Add DRM/CORS frame access probe helpers.
+- [x] Add HUD formatting, rendered-FPS sampling, and routed-mode smoke coverage.
+- [x] Add per-site allow/block/rule storage and content-script resolution.
+- [x] Add local benchmark smoke harness with Markdown/JSON output.
 - [ ] Port full Neural-Lite / ArtCNN shader.
 - [ ] Port Neural-Pro / RAVU shaders with LGPL headers and NOTICE entries.
-- [ ] Finish HUD metrics, per-site storage, screenshots, benchmarks, and release notes.
+- [ ] Add timestamp-query GPU timing, screenshots, measured Apple Silicon benchmarks, and release notes.
 
 ## Explicit Non-Goals
 

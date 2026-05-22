@@ -2,7 +2,7 @@
 
 Metal-tuned GPU video upscaling for Chrome on macOS. The project targets Manifest V3, WebGPU through Dawn/Tint/Metal, and a WebGL2 fallback for the fast modes.
 
-This repository is being built in ordered milestones. The current build mounts a video overlay, performs a 1:1 frame copy through WebGPU or WebGL2, and routes Auto, Crisp, Sharpen, Anime, and Smooth through working shader paths. Neural-Lite and Neural-Pro have attribution-aware disabled skeletons until their real shader ports land.
+This repository is being built in ordered milestones. The current build mounts a video overlay, routes Auto, Crisp, Sharpen, Anime, and Smooth through working shader paths, persists global and per-site settings, and exposes a HUD with backend, mode, resolution, FPS, and status details. Neural-Lite and Neural-Pro have attribution-aware disabled skeletons until their real shader ports land.
 
 ## Install for Development
 
@@ -34,7 +34,7 @@ pnpm dev
 
 ## How It Works
 
-The content script finds visible `<video>` elements, mounts a pointer-transparent canvas over the video box, and hands frames to a reusable upscaler pipeline. The original video is kept in the page for audio, controls, captions, fullscreen, and site event handling, then visually hidden while the overlay presents processed frames.
+The content script finds visible `<video>` elements, mounts a pointer-transparent canvas over the video box, resolves global settings plus allow/block/site overrides for the current hostname, and hands frames to a reusable upscaler pipeline. The original video is kept in the page for audio, controls, captions, fullscreen, and site event handling, then visually hidden while the overlay presents processed frames. Blocked or allow-list-missed sites keep the original video visible and show the disable reason in the HUD.
 
 WebGPU is preferred on macOS Chrome 121+; WebGL2 is retained as a fallback for Crisp and Sharpen. The current WebGPU paths upload frames with `copyExternalImageToTexture`, reuse GPU resources, validate WGSL through Tint to MSL, and use `8x8x1` compute workgroups where compute is active. Crisp uses `shader-f16` when available and falls back to f32.
 
@@ -42,6 +42,8 @@ WebGPU is preferred on macOS Chrome 121+; WebGL2 is retained as a fallback for C
 
 - Generic HTML5 MP4 fixture: automated Playwright smoke test loads the unpacked extension from `dist`, mounts the overlay, and verifies nonzero canvas dimensions.
 - WebGL2 Crisp: automated Playwright smoke test writes extension settings, activates Crisp, verifies HUD mode text, and checks 1.5x backing resolution.
+- Routed modes: automated Playwright smoke verifies Sharpen, Anime, Smooth, Neural-Lite, and Neural-Pro reach their expected HUD status.
+- Per-site controls: automated Playwright smoke verifies a blocked hostname disables the overlay pipeline without hiding the original video.
 - WebGPU shaders: CI validates WGSL to MSL with Dawn Tint.
 - DRM/CORS probe helpers classify frame access failures for clear disable messaging.
 - YouTube: automated Chromium smoke verified the overlay on `https://www.youtube.com/watch?v=jNQXAC9IVRw`.
@@ -58,7 +60,15 @@ MetalFX is native-only and is not reachable from WebGPU, so this extension ships
 
 ## Benchmarks
 
-Benchmarks are not available yet. The first measured table will be added after the WebGPU Crisp and texture-pool milestone on an Apple Silicon Mac, with chip model clearly listed.
+The benchmark smoke harness loads the built extension against the local MP4 fixture and records overlay dimensions, HUD text, callback counts, and approximate callback FPS:
+
+```sh
+pnpm build
+node scripts/collect-benchmark.mjs --mode crisp,smooth --duration-ms 5000
+node scripts/collect-benchmark.mjs --output markdown --output-path docs/benchmark-local.md
+```
+
+Manual Apple Silicon GPU timing numbers are still pending. The first measured table will list the exact Mac chip, Chrome version, source resolution, output target, and per-mode GPU time.
 
 ## Licensing
 
