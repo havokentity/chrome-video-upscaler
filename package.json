@@ -1,6 +1,6 @@
 {
   "name": "chrome-video-upscaler",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "GPU video upscaling Chrome extension for HTML5 video.",
   "type": "module",
   "private": false,
@@ -18,6 +18,8 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
+    "build:store": "vite build --mode store",
+    "package:store": "pnpm build:store && rm -f chrome-video-upscaler-v${npm_package_version}.zip && cd dist && zip -qr ../chrome-video-upscaler-v${npm_package_version}.zip . -x '*.map' && cd .. && shasum -a 256 chrome-video-upscaler-v${npm_package_version}.zip",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",

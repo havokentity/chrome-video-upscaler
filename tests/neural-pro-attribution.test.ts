@@ -3,10 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   getRavuPlannedSource,
   getRavuLiteHookSource,
+  getRavuZoomHookSource,
   RAVU_ATTRIBUTION_TODO,
   RAVU_LITE_LUT_VALUE_COUNT,
   RAVU_PLANNED_SOURCES,
   RAVU_UPSTREAM,
+  RAVU_ZOOM_LUT3_AR_VALUE_COUNT,
+  RAVU_ZOOM_LUT3_VALUE_COUNT,
   resolveNeuralProVariant,
 } from '../src/upscaler/modes/neural-pro';
 
@@ -21,7 +24,7 @@ describe('Neural-Pro RAVU attribution and source import', () => {
     });
   });
 
-  it('tracks RAVU-Zoom as pending and RAVU-Lite as imported', () => {
+  it('tracks RAVU-Zoom and RAVU-Lite as imported', () => {
     expect(RAVU_PLANNED_SOURCES).toHaveLength(2);
     expect(RAVU_PLANNED_SOURCES.map((source) => source.upstreamFile)).toEqual([
       'ravu-zoom-ar-r3.hook',
@@ -32,7 +35,7 @@ describe('Neural-Pro RAVU attribution and source import', () => {
       'LGPL-3.0-or-later',
     ]);
     expect(RAVU_PLANNED_SOURCES.map((source) => source.importStatus)).toEqual([
-      'todo-preserve-header-before-import',
+      'imported-with-lgpl-header',
       'imported-with-lgpl-header',
     ]);
   });
@@ -50,7 +53,10 @@ describe('Neural-Pro RAVU attribution and source import', () => {
     expect(getRavuPlannedSource('lite').intendedLocalFile).toBe(
       'src/upscaler/modes/neural-pro/ravu-lite-ar-r3.hook',
     );
-    expect(RAVU_ATTRIBUTION_TODO).toContain('original LGPL header');
+    expect(getRavuPlannedSource('zoom').intendedLocalFile).toBe(
+      'src/upscaler/modes/neural-pro/ravu-zoom-ar-r3.hook',
+    );
+    expect(RAVU_ATTRIBUTION_TODO).toContain('original LGPL headers');
     expect(RAVU_ATTRIBUTION_TODO).toContain('NOTICE');
   });
 
@@ -63,5 +69,17 @@ describe('Neural-Pro RAVU attribution and source import', () => {
     expect(source.step2.code).toContain('ravu_lite_int_texOff');
     expect(source.lutValues).toHaveLength(RAVU_LITE_LUT_VALUE_COUNT);
     expect(Number.isFinite(source.lutValues[0])).toBe(true);
+  });
+
+  it('lazy-loads and parses the imported RAVU-Zoom shader pass and LUT payloads', async () => {
+    const source = await getRavuZoomHookSource();
+    expect(source.source).toContain('GNU Lesser General Public License');
+    expect(source.pass.description).toBe('RAVU-Zoom-AR (luma, r3)');
+    expect(source.pass.code).toContain('texture(ravu_zoom_lut3');
+    expect(source.pass.code).toContain('texture(ravu_zoom_lut3_ar');
+    expect(source.lut3Values).toHaveLength(RAVU_ZOOM_LUT3_VALUE_COUNT);
+    expect(source.lut3ArValues).toHaveLength(RAVU_ZOOM_LUT3_AR_VALUE_COUNT);
+    expect(Number.isFinite(source.lut3Values[0])).toBe(true);
+    expect(Number.isFinite(source.lut3ArValues[0])).toBe(true);
   });
 });

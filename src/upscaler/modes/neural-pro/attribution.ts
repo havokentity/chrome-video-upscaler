@@ -15,7 +15,7 @@ export interface RavuPlannedSource {
   readonly sourceUrl: string;
   readonly intendedLocalFile: string;
   readonly license: typeof RAVU_UPSTREAM.license;
-  readonly importStatus: 'todo-preserve-header-before-import' | 'imported-with-lgpl-header';
+  readonly importStatus: 'imported-with-lgpl-header';
   readonly notes: string;
 }
 
@@ -30,9 +30,9 @@ export const RAVU_PLANNED_SOURCES = [
     sourceUrl: rawUrl('ravu-zoom-ar-r3.hook'),
     intendedLocalFile: 'src/upscaler/modes/neural-pro/ravu-zoom-ar-r3.hook',
     license: RAVU_UPSTREAM.license,
-    importStatus: 'todo-preserve-header-before-import',
+    importStatus: 'imported-with-lgpl-header',
     notes:
-      'RAVU-Zoom-AR r3 is the intended arbitrary-ratio / 2x Neural-Pro source. Port only with the LGPL header and NOTICE attribution preserved.',
+      'RAVU-Zoom-AR r3 is imported with the original LGPL header preserved and is lazy-loaded only for explicit Zoom selection.',
   },
   {
     variant: 'lite',
@@ -48,7 +48,7 @@ export const RAVU_PLANNED_SOURCES = [
 ] as const satisfies readonly RavuPlannedSource[];
 
 export const RAVU_ATTRIBUTION_TODO =
-  'RAVU-Lite is imported with its original LGPL header; RAVU-Zoom remains pending and must be imported with the same header and NOTICE treatment before enabling.' as const;
+  'RAVU-Lite and RAVU-Zoom are imported with original LGPL headers; NOTICE must continue listing every bundled RAVU hook.' as const;
 
 export const getRavuPlannedSource = (variant: RavuPlannedVariant): RavuPlannedSource =>
   RAVU_PLANNED_SOURCES.find((source) => source.variant === variant) ?? RAVU_PLANNED_SOURCES[0];

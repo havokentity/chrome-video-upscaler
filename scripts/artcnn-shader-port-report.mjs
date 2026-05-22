@@ -1,45 +1,65 @@
 #!/usr/bin/env node
 
-import { existsSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { basename, resolve } from 'node:path';
 
 const DEFAULT_SOURCE = '/tmp/ArtCNN/GLSL/ArtCNN_C4F16.glsl';
 
-const usage = `Usage: node scripts/artcnn-shader-port-report.mjs [source.glsl] [--json]
+const usage = `Usage: node scripts/artcnn-shader-port-report.mjs [source.glsl] [--json] [--emit-json out.json] [--emit-wgsl out.wgsl]
 
 Parses ArtCNN mpv GLSL hook metadata and emits a compact porting report.
 Default source: ${DEFAULT_SOURCE}
 `;
 
-const args = process.argv.slice(2);
-if (args.includes('--help') || args.includes('-h')) {
-  process.stdout.write(usage);
-  process.exit(0);
+if (isMainModule()) {
+  runCli(process.argv.slice(2));
 }
 
-const json = args.includes('--json');
-const sourceArg = args.find((arg) => !arg.startsWith('-')) ?? DEFAULT_SOURCE;
-const sourcePath = resolve(sourceArg);
+export function runCli(args) {
+  if (args.includes('--help') || args.includes('-h')) {
+    process.stdout.write(usage);
+    return;
+  }
 
-if (!existsSync(sourcePath)) {
-  process.stderr.write(
-    `ArtCNN GLSL source not found: ${sourcePath}\n` +
-      `Fetch upstream ArtCNN first, for example: git clone https://github.com/Artoriuz/ArtCNN.git /tmp/ArtCNN\n`,
-  );
-  process.exit(1);
+  const json = args.includes('--json');
+  const sourceArg = args.find((arg, index) => !arg.startsWith('-') && !isOptionValue(args, index)) ?? DEFAULT_SOURCE;
+  const sourcePath = resolve(sourceArg);
+  const emitJsonPath = getOptionValue(args, '--emit-json');
+  const emitWgslPath = getOptionValue(args, '--emit-wgsl');
+
+  if (!existsSync(sourcePath)) {
+    process.stderr.write(
+      `ArtCNN GLSL source not found: ${sourcePath}\n` +
+        `Fetch upstream ArtCNN first, for example: git clone https://github.com/Artoriuz/ArtCNN.git /tmp/ArtCNN\n`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  const report = parseArtCnnShaderSourceFile(sourcePath);
+  if (emitJsonPath) {
+    writeFileSync(resolve(emitJsonPath), `${JSON.stringify(buildMetadataArtifact(report), null, 2)}\n`);
+  }
+  if (emitWgslPath) {
+    writeFileSync(resolve(emitWgslPath), generateWgslSkeleton(report));
+  }
+
+  if (json) {
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+  } else {
+    process.stdout.write(formatMarkdown(report));
+  }
 }
 
-const source = readFileSync(sourcePath, 'utf8');
-const stages = parseStages(source);
-const report = buildReport(sourcePath, stages);
-
-if (json) {
-  process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-} else {
-  process.stdout.write(formatMarkdown(report));
+export function parseArtCnnShaderSourceFile(sourcePath) {
+  const resolvedPath = resolve(sourcePath);
+  const source = readFileSync(resolvedPath, 'utf8');
+  return buildReport(resolvedPath, source, parseStages(source));
 }
 
-function parseStages(text) {
+export function parseStages(text) {
   const descMatches = [...text.matchAll(/^\/\/!DESC\s+(.+)$/gm)];
   return descMatches.map((match, index) => {
     const start = match.index ?? 0;
@@ -53,14 +73,21 @@ function parseStages(text) {
     const sharedMatch = block.match(/shared\s+(\w+)\s+inp\[(\d+)\]\[isize\.y\]\[isize\.x\]/);
     const outputStepMatch = block.match(/output_base\s*=\s*ivec2\(gl_GlobalInvocationID\)\s*\*\s*ivec2\((\d+),\s*(\d+)\)/);
     const inputStepMatch = block.match(/input_base\s*=\s*\(base\s*\+\s*ivec2\(x,y\)\s*-\s*offset\)\s*\*\s*ivec2\((\d+),\s*(\d+)\)/);
-    const resultInitializers = countMatches(block, /\bV4\s+result\d+\s*=\s*V4\(/g);
-    const matrixProducts = countMatches(block, /\bresult\d+\s*\+=\s*M4\(/g);
-    const vectorProducts = countMatches(block, /\bresult\d+\s*\+=\s*V4\(/g);
+    const constantsByResult = parseConstantsByResult(block);
+    const resultInitializers = constantsByResult.filter((result) => result.bias.length > 0).length;
+    const matrixProducts = sum(constantsByResult.map((result) => result.terms.filter((term) => term.operator === 'M4').length));
+    const vectorProducts = sum(constantsByResult.map((result) => result.terms.filter((term) => term.operator === 'V4').length));
     const imageStores = countMatches(block, /\bimageStore\s*\(/g);
     const texelFetches = countMatches(block, /\btexelFetch\s*\(/g);
+    const activation = /\bmax\s*\(\s*result\d+\s*,\s*V4\(0\.0\)\s*\)/.test(block)
+      ? 'relu'
+      : /\bclamp\s*\(/.test(block)
+        ? 'clamp'
+        : 'linear';
 
     return {
       index: index + 1,
+      id: makeStageId(save, metadata.DESC ?? match[1]),
       desc: metadata.DESC ?? match[1],
       hook: metadata.HOOK,
       binds: toArray(metadata.BIND),
@@ -81,15 +108,17 @@ function parseStages(text) {
       vectorProducts,
       imageStores,
       texelFetches,
-      hasRelu: /\bmax\s*\(\s*result\d+\s*,\s*V4\(0\.0\)\s*\)/.test(block),
-      hasClamp: /\bclamp\s*\(/.test(block),
+      activation,
+      hasRelu: activation === 'relu',
+      hasClamp: activation === 'clamp',
       hasResidualAdd: toArray(metadata.BIND).length > 1,
-      estimatedScalarWeights: resultInitializers * 4 + matrixProducts * 16 + vectorProducts * 4,
+      constantsByResult,
+      estimatedScalarWeights: sum(constantsByResult.map((result) => result.scalarCount)),
     };
   });
 }
 
-function parseMetadata(block) {
+export function parseMetadata(block) {
   const values = {};
   for (const match of block.matchAll(/^\/\/!(\w+)\s+(.+)$/gm)) {
     const [, key, value] = match;
@@ -102,7 +131,7 @@ function parseMetadata(block) {
   return values;
 }
 
-function parseCompute(value) {
+export function parseCompute(value) {
   const numbers = (value ?? '')
     .split(/\s+/)
     .filter(Boolean)
@@ -114,23 +143,23 @@ function parseCompute(value) {
   };
 }
 
-function parseScale(value) {
+export function parseScale(value) {
   const match = value?.match(/\b([0-9]+(?:\.[0-9]+)?)\s+\*/);
   return match ? Number(match[1]) : null;
 }
 
-function countMatches(text, pattern) {
+export function countMatches(text, pattern) {
   return [...text.matchAll(pattern)].length;
 }
 
-function toArray(value) {
+export function toArray(value) {
   if (!value) {
     return [];
   }
   return Array.isArray(value) ? value : [value];
 }
 
-function buildReport(sourcePath, stages) {
+export function buildReport(sourcePath, source, stages) {
   const totals = stages.reduce(
     (accumulator, stage) => ({
       estimatedScalarWeights: accumulator.estimatedScalarWeights + stage.estimatedScalarWeights,
@@ -138,11 +167,13 @@ function buildReport(sourcePath, stages) {
       matrixProducts: accumulator.matrixProducts + stage.matrixProducts,
       texelFetches: accumulator.texelFetches + stage.texelFetches,
       vectorProducts: accumulator.vectorProducts + stage.vectorProducts,
+      resultInitializers: accumulator.resultInitializers + stage.resultInitializers,
     }),
     {
       estimatedScalarWeights: 0,
       imageStores: 0,
       matrixProducts: 0,
+      resultInitializers: 0,
       texelFetches: 0,
       vectorProducts: 0,
     },
@@ -158,6 +189,7 @@ function buildReport(sourcePath, stages) {
 
   return {
     source: sourcePath,
+    sourceHash: createHash('sha256').update(source).digest('hex'),
     sourceName: basename(sourcePath),
     stageCount: stages.length,
     stages,
@@ -166,11 +198,100 @@ function buildReport(sourcePath, stages) {
   };
 }
 
-function formatMarkdown(report) {
+export function buildMetadataArtifact(report) {
+  return {
+    schemaVersion: 1,
+    generator: 'scripts/artcnn-shader-port-report.mjs',
+    source: {
+      name: report.sourceName,
+      sha256: report.sourceHash,
+      upstreamPath: DEFAULT_SOURCE,
+      variant: 'ArtCNN_C4F16',
+    },
+    passCount: report.stageCount,
+    textures: {
+      input: ['LUMA'],
+      intermediate: report.intermediateTextures.map((texture) => texture.name),
+      output: 'final image',
+    },
+    totals: report.totals,
+    passes: report.stages.map((stage) => ({
+      index: stage.index,
+      id: stage.id,
+      description: stage.desc,
+      hook: stage.hook,
+      binds: stage.binds,
+      outputTexture: stage.save,
+      widthScale: stage.widthScale,
+      heightScale: stage.heightScale,
+      components: stage.components,
+      compute: stage.compute,
+      localSize: stage.compute.localSize,
+      inputStep: stage.inputStep,
+      outputStep: stage.outputStep,
+      shared: {
+        planes: stage.sharedPlanes,
+        valueType: stage.sharedValueType,
+      },
+      activation: stage.activation,
+      hasResidualAdd: stage.hasResidualAdd,
+      counts: {
+        biasVectors: stage.resultInitializers,
+        imageStores: stage.imageStores,
+        matrixProducts: stage.matrixProducts,
+        scalarConstants: stage.estimatedScalarWeights,
+        texelFetches: stage.texelFetches,
+        vectorProducts: stage.vectorProducts,
+      },
+      constantsByResult: stage.constantsByResult,
+    })),
+  };
+}
+
+export function generateWgslSkeleton(report) {
+  const artifact = buildMetadataArtifact(report);
+  const lines = [
+    '/*',
+    ' * Generated ArtCNN C4F16 shader-native scaffold.',
+    ' * Source: ArtCNN_C4F16.glsl from Artoriuz/ArtCNN, MIT licensed.',
+    ` * Source SHA-256: ${artifact.source.sha256}`,
+    ' *',
+    ' * This is a non-runtime skeleton. It preserves pass boundaries, bindings,',
+    ' * workgroup sizes, output steps, and extracted constant counts so the real',
+    ' * WGSL kernels can be filled in without drifting from upstream metadata.',
+    ' */',
+    '',
+    'struct ArtCnnNativeParams {',
+    '  source_size: vec2u,',
+    '  output_size: vec2u,',
+    '};',
+    '',
+  ];
+
+  for (const pass of artifact.passes) {
+    const [x, y, z] = pass.localSize ?? [1, 1, 1];
+    lines.push(
+      `// Pass ${pass.index}: ${pass.description}`,
+      `// binds=${pass.binds.join(', ') || '-'} output=${pass.outputTexture} output_step=${pass.outputStep.join('x')}`,
+      `// constants: bias=${pass.counts.biasVectors} M4=${pass.counts.matrixProducts} V4=${pass.counts.vectorProducts} scalars=${pass.counts.scalarConstants}`,
+      `@compute @workgroup_size(${x}, ${y}, ${z})`,
+      `fn artcnn_c4f16_pass_${String(pass.index).padStart(2, '0')}(@builtin(global_invocation_id) global_id: vec3u) {`,
+      '  _ = global_id;',
+      '  // TODO: generated kernel body will consume constantsByResult from artcnn-c4f16-native-metadata.json.',
+      '}',
+      '',
+    );
+  }
+
+  return `${lines.join('\n')}\n`;
+}
+
+export function formatMarkdown(report) {
   const lines = [
     `# ${report.sourceName} Port Report`,
     '',
     `Source: \`${report.source}\``,
+    `SHA-256: \`${report.sourceHash}\``,
     '',
     `Stages: ${report.stageCount}`,
     `Estimated scalar constants: ${report.totals.estimatedScalarWeights}`,
@@ -206,4 +327,88 @@ function formatMarkdown(report) {
   }
 
   return `${lines.join('\n')}\n`;
+}
+
+function parseConstantsByResult(block) {
+  const resultMap = new Map();
+
+  for (const match of block.matchAll(/\bV4\s+result(\d+)\s*=\s*V4\(([^)]*)\)/g)) {
+    const resultIndex = Number(match[1]);
+    resultMap.set(resultIndex, {
+      result: `result${resultIndex}`,
+      bias: parseNumberList(match[2]),
+      terms: [],
+      scalarCount: 4,
+    });
+  }
+
+  for (const match of block.matchAll(/\bresult(\d+)\s*\+=\s*(M4|V4)\(([^)]*)\)\s*\*\s*(inp_(\d+)_(\d+)_(\d+))/g)) {
+    const resultIndex = Number(match[1]);
+    const operator = match[2];
+    const values = parseNumberList(match[3]);
+    const result = resultMap.get(resultIndex) ?? {
+      result: `result${resultIndex}`,
+      bias: [],
+      terms: [],
+      scalarCount: 0,
+    };
+
+    result.terms.push({
+      input: match[4],
+      operator,
+      plane: Number(match[5]),
+      tile: [Number(match[6]), Number(match[7])],
+      values,
+    });
+    result.scalarCount += values.length;
+    resultMap.set(resultIndex, result);
+  }
+
+  return [...resultMap.values()]
+    .sort((left, right) => Number(left.result.replace('result', '')) - Number(right.result.replace('result', '')))
+    .map((result) => ({
+      ...result,
+      terms: result.terms.sort(
+        (left, right) =>
+          left.plane - right.plane ||
+          left.tile[1] - right.tile[1] ||
+          left.tile[0] - right.tile[0] ||
+          left.operator.localeCompare(right.operator),
+      ),
+    }));
+}
+
+function parseNumberList(text) {
+  return text.split(',').map((value) => Number(value.trim()));
+}
+
+function makeStageId(save, desc) {
+  if (save !== '(final image)') {
+    return save.replaceAll('-', '_');
+  }
+
+  return desc
+    .toLowerCase()
+    .replace(/^artcnn c4f16 \(|\)$/g, '')
+    .replaceAll('-', '_')
+    .replaceAll(/\W+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function sum(values) {
+  return values.reduce((total, value) => total + value, 0);
+}
+
+function getOptionValue(args, optionName) {
+  const index = args.indexOf(optionName);
+  return index >= 0 ? args[index + 1] : undefined;
+}
+
+function isOptionValue(args, index) {
+  const previous = args[index - 1];
+  return previous === '--emit-json' || previous === '--emit-wgsl';
+}
+
+function isMainModule() {
+  return process.argv[1] ? import.meta.url === pathToFileURL(process.argv[1]).href : false;
 }

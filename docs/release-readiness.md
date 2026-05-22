@@ -8,6 +8,7 @@ This checklist is for the public Chrome Video Upscaler release lane after the pr
 - Confirm no user-facing release copy still presents the product as macOS-only.
 - Confirm repository links point to `https://github.com/havokentity/chrome-video-upscaler`.
 - Confirm the extension description stays accurate: GPU video upscaling for HTML5 video in Chrome.
+- Confirm `package.json` and `manifest.json` versions match the release tag. The first public prep version is `0.1.0`.
 - Record any remaining legacy references to `mac-video-upscaler` with file path, line, and whether they are historical/internal or user-facing.
 
 ## Local Build Gate
@@ -20,6 +21,7 @@ pnpm install
 pnpm verify
 pnpm test:e2e
 pnpm build
+pnpm package:store
 ```
 
 `pnpm verify` currently expands to:
@@ -37,6 +39,7 @@ Tester record:
 - Command results, including skipped tests or environment-only failures.
 - `dist/manifest.json` version, name, description, permissions, host permissions, and `web_accessible_resources` summary.
 - Final `dist/` size and zip size for the upload candidate.
+- Store package name and SHA256 from `pnpm package:store`.
 
 ## Platform Validation Matrix
 
@@ -162,7 +165,7 @@ Store privacy/package concerns:
 - State that settings are stored with Chrome extension storage for global and per-site preferences.
 - Confirm no remote JavaScript, remote WASM, CDN runtime, telemetry endpoint, analytics SDK, or remote model download exists in the release candidate.
 - Confirm packaged ONNX/WASM assets are loaded from extension URLs and not network URLs.
-- Confirm source maps are either intentionally included for review/debuggability or intentionally excluded from the final upload package.
+- Confirm source maps are intentionally excluded from the final Chrome Web Store upload package. Normal `pnpm build` keeps maps for local debugging; `pnpm build:store` disables them, and `pnpm package:store` zips that store-mode output.
 - Confirm third-party notices and licenses cover ONNX Runtime Web, ArtCNN, Anime4K-derived code, RAVU-derived code, and any other bundled shader/model assets.
 - Confirm LGPL components remain attributed and source-available in the public repository.
 - Confirm store copy does not claim compatibility with DRM/EME streaming services.
@@ -176,20 +179,19 @@ du -sh dist
 find dist -maxdepth 3 -type f | sort
 ```
 
-Optional upload zip command:
+Upload zip command:
 
 ```sh
-cd dist
-zip -r ../chrome-video-upscaler-store.zip .
-cd ..
-du -sh chrome-video-upscaler-store.zip
+pnpm package:store
+du -sh chrome-video-upscaler-v$(node -p "require('./package.json').version").zip
+unzip -l chrome-video-upscaler-v$(node -p "require('./package.json').version").zip | sed -n '1,40p'
 ```
 
 Tester record:
 
 - Zip file name, size, SHA256, and commit SHA.
 - Manual check that the zip root contains `manifest.json`.
-- Any source map decision and rationale.
+- Source map decision: excluded from Chrome Web Store zip; public repository remains available for source review, and normal builds retain maps for local debugging.
 - Any Chrome Web Store warning text encountered during upload.
 
 ## Known Limitations To Validate After Rename
@@ -221,6 +223,7 @@ Build gate:
 - pnpm build:
 - dist size:
 - zip size/SHA256:
+- source maps in upload zip:
 
 Platform:
 - OS/version:

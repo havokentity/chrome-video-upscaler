@@ -6,6 +6,13 @@ import {
   RAVU_LITE_LUT_HEIGHT,
   RAVU_LITE_LUT_WIDTH,
 } from './ravu-lite-source';
+import {
+  getRavuZoomHookSource,
+  RAVU_ZOOM_LUT3_AR_WIDTH,
+  RAVU_ZOOM_LUT3_WIDTH,
+  RAVU_ZOOM_LUT_HEIGHT,
+  type RavuZoomHookSource,
+} from './ravu-zoom-source';
 
 const FULLSCREEN_TRIANGLE = new Float32Array([-1, -1, 3, -1, -1, 3]);
 
@@ -57,8 +64,12 @@ export interface WebGL2NeuralProPipelineStatus extends PipelineStatus {
   sourceWidth: number;
   sourceHeight: number;
   scale: number;
-  variant: 'lite';
+  variant: 'lite' | 'zoom';
   upstreamCommit: string;
+}
+
+interface WebGL2NeuralProPipelineConstructorOptions extends WebGL2NeuralProPipelineOptions {
+  readonly ravuZoomSource?: RavuZoomHookSource;
 }
 
 interface TextureRecord {
@@ -84,18 +95,24 @@ export class WebGL2NeuralProPipeline implements FramePipeline {
   private readonly canvas: HTMLCanvasElement;
   private readonly video: HTMLVideoElement;
   private readonly gl: WebGL2RenderingContext;
-  private readonly step1Program: WebGLProgram;
-  private readonly step2Program: WebGLProgram;
+  private readonly variant: 'lite' | 'zoom';
+  private readonly step1Program?: WebGLProgram;
+  private readonly step2Program?: WebGLProgram;
+  private readonly zoomProgram?: WebGLProgram;
   private readonly presentProgram: WebGLProgram;
   private readonly sourceTexture: TextureRecord;
-  private readonly lutTexture: WebGLTexture;
+  private readonly lutTexture?: WebGLTexture;
+  private readonly zoomLutTexture?: WebGLTexture;
+  private readonly zoomLutArTexture?: WebGLTexture;
   private readonly vertexArray: WebGLVertexArrayObject;
   private readonly vertexBuffer: WebGLBuffer;
-  private readonly step1OutputSizeLocation: WebGLUniformLocation;
-  private readonly step1HookedSizeLocation: WebGLUniformLocation;
-  private readonly step2OutputSizeLocation: WebGLUniformLocation;
-  private readonly step2HookedSizeLocation: WebGLUniformLocation;
-  private readonly step2RavuIntSizeLocation: WebGLUniformLocation;
+  private readonly step1OutputSizeLocation?: WebGLUniformLocation;
+  private readonly step1HookedSizeLocation?: WebGLUniformLocation;
+  private readonly step2OutputSizeLocation?: WebGLUniformLocation;
+  private readonly step2HookedSizeLocation?: WebGLUniformLocation;
+  private readonly step2RavuIntSizeLocation?: WebGLUniformLocation;
+  private readonly zoomOutputSizeLocation?: WebGLUniformLocation;
+  private readonly zoomHookedSizeLocation?: WebGLUniformLocation;
   private readonly renderTargets = new Map<string, TextureRecord>();
   private requestedWidth = 1;
   private requestedHeight = 1;
@@ -105,17 +122,19 @@ export class WebGL2NeuralProPipeline implements FramePipeline {
   constructor(
     canvas: HTMLCanvasElement,
     video: HTMLVideoElement,
-    options: WebGL2NeuralProPipelineOptions = {},
+    options: WebGL2NeuralProPipelineConstructorOptions = {},
   ) {
-    if (options.variant === 'zoom') {
+    const resolvedVariant = resolveWebGL2NeuralProVariant(options.variant, normalizeNeuralLiteScale(options.scale));
+    if (resolvedVariant === 'zoom' && !options.ravuZoomSource) {
       throw new WebGL2NeuralProPipelineError(
-        'RAVU-Zoom is not enabled yet; choose RAVU-Lite or Auto for the current Neural-Pro port.',
+        'RAVU-Zoom source was not loaded before WebGL2 Neural-Pro initialization.',
       );
     }
 
     this.canvas = canvas;
     this.video = video;
     this.scale = normalizeNeuralLiteScale(options.scale);
+    this.variant = resolvedVariant;
 
     const gl = canvas.getContext('webgl2', {
       alpha: true,
@@ -134,42 +153,80 @@ export class WebGL2NeuralProPipeline implements FramePipeline {
     this.gl = gl;
     gl.getExtension('EXT_color_buffer_float');
     gl.getExtension('EXT_color_buffer_half_float');
+    const floatLinearTextureExtension = gl.getExtension('OES_texture_float_linear');
 
-    const ravuSource = getRavuLiteHookSource();
-    this.step1Program = createProgram(gl, VERTEX_SHADER_SOURCE, createStep1FragmentSource(ravuSource.step1.code));
-    this.step2Program = createProgram(gl, VERTEX_SHADER_SOURCE, createStep2FragmentSource(ravuSource.step2.code));
     this.presentProgram = createProgram(gl, VERTEX_SHADER_SOURCE, PRESENT_FRAGMENT_SHADER_SOURCE);
     this.sourceTexture = createSourceTexture(gl);
-    this.lutTexture = createLutTexture(gl, ravuSource.lutValues);
     this.vertexArray = createVertexArray(gl);
     this.vertexBuffer = createVertexBuffer(gl);
 
-    bindFullscreenTriangle(gl, this.step1Program, this.vertexArray, this.vertexBuffer);
-    bindFullscreenTriangle(gl, this.step2Program, this.vertexArray, this.vertexBuffer);
     bindFullscreenTriangle(gl, this.presentProgram, this.vertexArray, this.vertexBuffer);
-    bindSampler(gl, this.step1Program, 'u_source_texture', 0);
-    bindSampler(gl, this.step1Program, 'ravu_lite_lut3', 1);
-    bindSampler(gl, this.step2Program, 'u_ravu_lite_int_texture', 0);
     bindSampler(gl, this.presentProgram, 'u_source_texture', 0);
     bindSampler(gl, this.presentProgram, 'u_ravu_texture', 1);
 
-    this.step1OutputSizeLocation = getUniformLocation(gl, this.step1Program, 'u_output_size');
-    this.step1HookedSizeLocation = getUniformLocation(gl, this.step1Program, 'u_HOOKED_size');
-    this.step2OutputSizeLocation = getUniformLocation(gl, this.step2Program, 'u_output_size');
-    this.step2HookedSizeLocation = getUniformLocation(gl, this.step2Program, 'u_HOOKED_size');
-    this.step2RavuIntSizeLocation = getUniformLocation(gl, this.step2Program, 'u_ravu_lite_int_size');
+    if (this.variant === 'zoom') {
+      if (!floatLinearTextureExtension) {
+        throw new WebGL2NeuralProPipelineError(
+          'WebGL2 Neural-Pro RAVU-Zoom requires linear filtering for floating-point LUT textures.',
+        );
+      }
+
+      const ravuSource = requireResource(options.ravuZoomSource, 'RAVU-Zoom source');
+      this.zoomProgram = createProgram(gl, VERTEX_SHADER_SOURCE, createZoomFragmentSource(ravuSource.pass.code));
+      this.zoomLutTexture = createLutTexture(
+        gl,
+        ravuSource.lut3Values,
+        RAVU_ZOOM_LUT3_WIDTH,
+        RAVU_ZOOM_LUT_HEIGHT,
+        gl.LINEAR,
+      );
+      this.zoomLutArTexture = createLutTexture(
+        gl,
+        ravuSource.lut3ArValues,
+        RAVU_ZOOM_LUT3_AR_WIDTH,
+        RAVU_ZOOM_LUT_HEIGHT,
+        gl.LINEAR,
+      );
+      bindFullscreenTriangle(gl, this.zoomProgram, this.vertexArray, this.vertexBuffer);
+      bindSampler(gl, this.zoomProgram, 'u_source_texture', 0);
+      bindSampler(gl, this.zoomProgram, 'ravu_zoom_lut3', 1);
+      bindSampler(gl, this.zoomProgram, 'ravu_zoom_lut3_ar', 2);
+      this.zoomOutputSizeLocation = getUniformLocation(gl, this.zoomProgram, 'u_output_size');
+      this.zoomHookedSizeLocation = getUniformLocation(gl, this.zoomProgram, 'u_HOOKED_size');
+    } else {
+      const ravuSource = getRavuLiteHookSource();
+      this.step1Program = createProgram(gl, VERTEX_SHADER_SOURCE, createStep1FragmentSource(ravuSource.step1.code));
+      this.step2Program = createProgram(gl, VERTEX_SHADER_SOURCE, createStep2FragmentSource(ravuSource.step2.code));
+      this.lutTexture = createLutTexture(
+        gl,
+        ravuSource.lutValues,
+        RAVU_LITE_LUT_WIDTH,
+        RAVU_LITE_LUT_HEIGHT,
+        gl.NEAREST,
+      );
+      bindFullscreenTriangle(gl, this.step1Program, this.vertexArray, this.vertexBuffer);
+      bindFullscreenTriangle(gl, this.step2Program, this.vertexArray, this.vertexBuffer);
+      bindSampler(gl, this.step1Program, 'u_source_texture', 0);
+      bindSampler(gl, this.step1Program, 'ravu_lite_lut3', 1);
+      bindSampler(gl, this.step2Program, 'u_ravu_lite_int_texture', 0);
+      this.step1OutputSizeLocation = getUniformLocation(gl, this.step1Program, 'u_output_size');
+      this.step1HookedSizeLocation = getUniformLocation(gl, this.step1Program, 'u_HOOKED_size');
+      this.step2OutputSizeLocation = getUniformLocation(gl, this.step2Program, 'u_output_size');
+      this.step2HookedSizeLocation = getUniformLocation(gl, this.step2Program, 'u_HOOKED_size');
+      this.step2RavuIntSizeLocation = getUniformLocation(gl, this.step2Program, 'u_ravu_lite_int_size');
+    }
 
     this.status = {
       backend: 'webgl2',
       canvasHeight: this.canvas.height,
       canvasWidth: this.canvas.width,
       mode: 'neural-pro',
-      reason: `RAVU-Lite-AR r3 WebGL2 port active (${RAVU_UPSTREAM.commit.slice(0, 7)}).`,
+      reason: `${getRavuVariantLabel(this.variant)} WebGL2 port active (${RAVU_UPSTREAM.commit.slice(0, 7)}).`,
       scale: this.scale,
       sourceHeight: 0,
       sourceWidth: 0,
       upstreamCommit: RAVU_UPSTREAM.commit,
-      variant: 'lite',
+      variant: this.variant,
     };
 
     this.resize(canvas.width, canvas.height);
@@ -192,8 +249,6 @@ export class WebGL2NeuralProPipeline implements FramePipeline {
     const output = this.ensureOutputSize();
     const sourceWidth = Math.max(1, this.video.videoWidth);
     const sourceHeight = Math.max(1, this.video.videoHeight);
-    const ravuWidth = sourceWidth * 2;
-    const ravuHeight = sourceHeight * 2;
     const gl = this.gl;
 
     gl.activeTexture(gl.TEXTURE0);
@@ -209,51 +264,124 @@ export class WebGL2NeuralProPipeline implements FramePipeline {
 
     assertNoGlError(gl, 'uploading the Neural-Pro source frame');
 
+    if (this.variant === 'zoom') {
+      this.renderZoomFrame(output.width, output.height, sourceWidth, sourceHeight);
+      return;
+    }
+
+    this.renderLiteFrame(output.width, output.height, sourceWidth, sourceHeight);
+  }
+
+  private renderLiteFrame(
+    outputWidth: number,
+    outputHeight: number,
+    sourceWidth: number,
+    sourceHeight: number,
+  ): void {
+    const gl = this.gl;
+    const step1Program = requireResource(this.step1Program, 'RAVU-Lite step 1 program');
+    const step2Program = requireResource(this.step2Program, 'RAVU-Lite step 2 program');
+    const lutTexture = requireResource(this.lutTexture, 'RAVU-Lite LUT texture');
+    const step1OutputSizeLocation = requireResource(this.step1OutputSizeLocation, 'RAVU-Lite step 1 output size');
+    const step1HookedSizeLocation = requireResource(this.step1HookedSizeLocation, 'RAVU-Lite step 1 hooked size');
+    const step2OutputSizeLocation = requireResource(this.step2OutputSizeLocation, 'RAVU-Lite step 2 output size');
+    const step2HookedSizeLocation = requireResource(this.step2HookedSizeLocation, 'RAVU-Lite step 2 hooked size');
+    const step2RavuIntSizeLocation = requireResource(this.step2RavuIntSizeLocation, 'RAVU-Lite intermediate size');
+    const ravuWidth = sourceWidth * 2;
+    const ravuHeight = sourceHeight * 2;
+
     const step1Target = this.getRenderTarget('ravu_lite_int', sourceWidth, sourceHeight);
     gl.bindFramebuffer(gl.FRAMEBUFFER, step1Target.framebuffer);
     gl.viewport(0, 0, sourceWidth, sourceHeight);
-    gl.useProgram(this.step1Program);
+    gl.useProgram(step1Program);
     gl.bindVertexArray(this.vertexArray);
-    gl.uniform2f(this.step1OutputSizeLocation, sourceWidth, sourceHeight);
-    gl.uniform2f(this.step1HookedSizeLocation, sourceWidth, sourceHeight);
+    gl.uniform2f(step1OutputSizeLocation, sourceWidth, sourceHeight);
+    gl.uniform2f(step1HookedSizeLocation, sourceWidth, sourceHeight);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.sourceTexture.texture);
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, this.lutTexture);
+    gl.bindTexture(gl.TEXTURE_2D, lutTexture);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     assertNoGlError(gl, 'running RAVU-Lite step 1');
 
     const step2Target = this.getRenderTarget('ravu_lite_x2', ravuWidth, ravuHeight);
     gl.bindFramebuffer(gl.FRAMEBUFFER, step2Target.framebuffer);
     gl.viewport(0, 0, ravuWidth, ravuHeight);
-    gl.useProgram(this.step2Program);
+    gl.useProgram(step2Program);
     gl.bindVertexArray(this.vertexArray);
-    gl.uniform2f(this.step2OutputSizeLocation, ravuWidth, ravuHeight);
-    gl.uniform2f(this.step2HookedSizeLocation, sourceWidth, sourceHeight);
-    gl.uniform2f(this.step2RavuIntSizeLocation, sourceWidth, sourceHeight);
+    gl.uniform2f(step2OutputSizeLocation, ravuWidth, ravuHeight);
+    gl.uniform2f(step2HookedSizeLocation, sourceWidth, sourceHeight);
+    gl.uniform2f(step2RavuIntSizeLocation, sourceWidth, sourceHeight);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, step1Target.texture);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     assertNoGlError(gl, 'running RAVU-Lite step 2');
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, output.width, output.height);
-    gl.useProgram(this.presentProgram);
-    gl.bindVertexArray(this.vertexArray);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.sourceTexture.texture);
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, step2Target.texture);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    this.presentRavuTexture(step2Target.texture, outputWidth, outputHeight);
     assertNoGlError(gl, 'presenting RAVU-Lite Neural-Pro');
 
-    this.status.canvasWidth = output.width;
-    this.status.canvasHeight = output.height;
+    this.status.canvasWidth = outputWidth;
+    this.status.canvasHeight = outputHeight;
     this.status.sourceWidth = sourceWidth;
     this.status.sourceHeight = sourceHeight;
     this.status.reason =
       `RAVU-Lite-AR r3 WebGL2 port active at ${this.scale.toFixed(1)}x ` +
       `(${RAVU_UPSTREAM.commit.slice(0, 7)}).`;
+  }
+
+  private renderZoomFrame(
+    outputWidth: number,
+    outputHeight: number,
+    sourceWidth: number,
+    sourceHeight: number,
+  ): void {
+    const gl = this.gl;
+    const zoomProgram = requireResource(this.zoomProgram, 'RAVU-Zoom program');
+    const zoomLutTexture = requireResource(this.zoomLutTexture, 'RAVU-Zoom LUT texture');
+    const zoomLutArTexture = requireResource(this.zoomLutArTexture, 'RAVU-Zoom AR LUT texture');
+    const zoomOutputSizeLocation = requireResource(this.zoomOutputSizeLocation, 'RAVU-Zoom output size');
+    const zoomHookedSizeLocation = requireResource(this.zoomHookedSizeLocation, 'RAVU-Zoom hooked size');
+
+    const zoomTarget = this.getRenderTarget('ravu_zoom', outputWidth, outputHeight);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, zoomTarget.framebuffer);
+    gl.viewport(0, 0, outputWidth, outputHeight);
+    gl.useProgram(zoomProgram);
+    gl.bindVertexArray(this.vertexArray);
+    gl.uniform2f(zoomOutputSizeLocation, outputWidth, outputHeight);
+    gl.uniform2f(zoomHookedSizeLocation, sourceWidth, sourceHeight);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.sourceTexture.texture);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, zoomLutTexture);
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, zoomLutArTexture);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    assertNoGlError(gl, 'running RAVU-Zoom');
+
+    this.presentRavuTexture(zoomTarget.texture, outputWidth, outputHeight);
+    assertNoGlError(gl, 'presenting RAVU-Zoom Neural-Pro');
+
+    this.status.canvasWidth = outputWidth;
+    this.status.canvasHeight = outputHeight;
+    this.status.sourceWidth = sourceWidth;
+    this.status.sourceHeight = sourceHeight;
+    this.status.reason =
+      `RAVU-Zoom-AR r3 WebGL2 port active at ${this.scale.toFixed(1)}x ` +
+      `(${RAVU_UPSTREAM.commit.slice(0, 7)}).`;
+  }
+
+  private presentRavuTexture(ravuTexture: WebGLTexture, outputWidth: number, outputHeight: number): void {
+    const gl = this.gl;
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, outputWidth, outputHeight);
+    gl.useProgram(this.presentProgram);
+    gl.bindVertexArray(this.vertexArray);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.sourceTexture.texture);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, ravuTexture);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
   destroy(): void {
@@ -269,13 +397,28 @@ export class WebGL2NeuralProPipeline implements FramePipeline {
     gl.deleteBuffer(this.vertexBuffer);
     gl.deleteVertexArray(this.vertexArray);
     gl.deleteTexture(this.sourceTexture.texture);
-    gl.deleteTexture(this.lutTexture);
+    if (this.lutTexture) {
+      gl.deleteTexture(this.lutTexture);
+    }
+    if (this.zoomLutTexture) {
+      gl.deleteTexture(this.zoomLutTexture);
+    }
+    if (this.zoomLutArTexture) {
+      gl.deleteTexture(this.zoomLutArTexture);
+    }
     this.renderTargets.forEach((record) => {
       gl.deleteFramebuffer(record.framebuffer);
       gl.deleteTexture(record.texture);
     });
-    gl.deleteProgram(this.step1Program);
-    gl.deleteProgram(this.step2Program);
+    if (this.step1Program) {
+      gl.deleteProgram(this.step1Program);
+    }
+    if (this.step2Program) {
+      gl.deleteProgram(this.step2Program);
+    }
+    if (this.zoomProgram) {
+      gl.deleteProgram(this.zoomProgram);
+    }
     gl.deleteProgram(this.presentProgram);
     this.destroyed = true;
   }
@@ -320,11 +463,27 @@ export class WebGL2NeuralProPipeline implements FramePipeline {
   }
 }
 
-export const createWebGL2NeuralProPipeline = (
+export const createWebGL2NeuralProPipeline = async (
   canvas: HTMLCanvasElement,
   video: HTMLVideoElement,
   options?: WebGL2NeuralProPipelineOptions,
-): WebGL2NeuralProPipeline => new WebGL2NeuralProPipeline(canvas, video, options);
+): Promise<WebGL2NeuralProPipeline> => {
+  const scale = normalizeNeuralLiteScale(options?.scale);
+  const variant = resolveWebGL2NeuralProVariant(options?.variant, scale);
+  const ravuZoomSource = variant === 'zoom' ? await getRavuZoomHookSource() : undefined;
+  return new WebGL2NeuralProPipeline(canvas, video, { ...options, ravuZoomSource, scale, variant });
+};
+
+export const resolveWebGL2NeuralProVariant = (
+  variant: WebGL2NeuralProPipelineOptions['variant'],
+  scale: number,
+): 'lite' | 'zoom' => {
+  if (variant === 'lite' || variant === 'zoom') {
+    return variant;
+  }
+
+  return scale >= 1.95 ? 'zoom' : 'lite';
+};
 
 const createStep1FragmentSource = (hookCode: string): string => `#version 300 es
 precision highp float;
@@ -395,6 +554,39 @@ void main() {
 }
 `;
 
+const createZoomFragmentSource = (hookCode: string): string => `#version 300 es
+precision highp float;
+precision highp int;
+
+uniform sampler2D u_source_texture;
+uniform sampler2D ravu_zoom_lut3;
+uniform sampler2D ravu_zoom_lut3_ar;
+uniform vec2 u_output_size;
+uniform vec2 u_HOOKED_size;
+
+#define HOOKED_size u_HOOKED_size
+#define HOOKED_pt (1.0 / u_HOOKED_size)
+#define HOOKED_pos (gl_FragCoord.xy / u_output_size)
+
+float sourceLuma(vec3 color) {
+  return dot(color, vec3(0.2126, 0.7152, 0.0722));
+}
+
+vec4 HOOKED_tex(vec2 pos) {
+  vec3 color = texture(u_source_texture, clamp(pos, vec2(0.0), vec2(1.0))).rgb;
+  float y = sourceLuma(color);
+  return vec4(y, y, y, 1.0);
+}
+
+out vec4 out_color;
+
+${hookCode}
+
+void main() {
+  out_color = hook();
+}
+`;
+
 const createShader = (
   gl: WebGL2RenderingContext,
   type: GLenum,
@@ -452,20 +644,26 @@ const createSourceTexture = (gl: WebGL2RenderingContext): TextureRecord => {
   return { framebuffer: null, height: 1, texture, width: 1 };
 };
 
-const createLutTexture = (gl: WebGL2RenderingContext, lutValues: Float32Array): WebGLTexture => {
+const createLutTexture = (
+  gl: WebGL2RenderingContext,
+  lutValues: Float32Array,
+  width: number,
+  height: number,
+  filter: GLenum,
+): WebGLTexture => {
   const texture = gl.createTexture();
 
   gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.texImage2D(
     gl.TEXTURE_2D,
     0,
     gl.RGBA16F,
-    RAVU_LITE_LUT_WIDTH,
-    RAVU_LITE_LUT_HEIGHT,
+    width,
+    height,
     0,
     gl.RGBA,
     gl.FLOAT,
@@ -556,6 +754,17 @@ const assertAlive = (destroyed: boolean): void => {
     throw new WebGL2NeuralProPipelineError('WebGL2 Neural-Pro pipeline has already been destroyed.');
   }
 };
+
+const requireResource = <Resource>(resource: Resource | undefined, name: string): Resource => {
+  if (resource === undefined) {
+    throw new WebGL2NeuralProPipelineError(`WebGL2 Neural-Pro is missing ${name}.`);
+  }
+
+  return resource;
+};
+
+const getRavuVariantLabel = (variant: 'lite' | 'zoom'): string =>
+  variant === 'zoom' ? 'RAVU-Zoom-AR r3' : 'RAVU-Lite-AR r3';
 
 const assertNoGlError = (gl: WebGL2RenderingContext, operation: string): void => {
   const error = gl.getError();

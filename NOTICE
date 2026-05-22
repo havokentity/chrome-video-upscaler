@@ -2,11 +2,11 @@ Chrome Video Upscaler
 Copyright (c) 2026 Rajesh Peter D'Monte
 License: MIT
 
-This repository currently contains original shader approximations shaped after
-well-known open algorithms. Exact third-party shader ports must preserve
+This repository contains original extension code plus clearly attributed
+third-party shader/model components. Exact third-party shader ports preserve
 upstream headers and add per-file attribution here before import.
 
-Planned attributions before exact shader integration:
+Attributions:
 
 - AMD FidelityFX Super Resolution 1.0 EASU + RCAS, MIT.
   Local Crisp shaders are derived from ffx_fsr1.h, version v1.20210629:
@@ -37,6 +37,5 @@ Planned attributions before exact shader integration:
   Imported from https://github.com/bjin/mpv-prescalers at commit
   b3f0a59d68f33b7162051ea5970a5169558f0ea2:
   src/upscaler/modes/neural-pro/ravu-lite-ar-r3.hook
-  The original LGPL header is preserved in the imported source file.
-  RAVU-Zoom remains planned from the same upstream commit:
-  ravu-zoom-ar-r3.hook.
+  src/upscaler/modes/neural-pro/ravu-zoom-ar-r3.hook
+  The original LGPL header is preserved in the imported source files.

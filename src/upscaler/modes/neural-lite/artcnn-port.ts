@@ -3,7 +3,9 @@ import { ARTCNN_UPSTREAM } from './artcnn-attribution';
 export type ArtCnnPortStageKind =
   | 'conv2d-upsample'
   | 'conv2d-relu'
-  | 'conv2d-output';
+  | 'conv2d-linear'
+  | 'conv2d-residual'
+  | 'depth-to-space';
 
 export interface ArtCnnPortStage {
   readonly id: string;
@@ -21,18 +23,22 @@ export interface ArtCnnPortPlan {
   readonly sourcePath: typeof ARTCNN_UPSTREAM.smallestRealtimeVariant.upstreamPath;
   readonly sourceCommit: typeof ARTCNN_UPSTREAM.verifiedCommit;
   readonly license: typeof ARTCNN_UPSTREAM.license;
+  readonly generatedMetadata: string;
   readonly localPreviewShader: string;
+  readonly nativeSkeletonShader: string;
   readonly enabled: false;
   readonly reason: string;
   readonly stages: readonly ArtCnnPortStage[];
 }
 
-const ARTCNN_C4F16_WORKGROUP = [24, 32, 1] as const;
+const ARTCNN_C4F16_WORKGROUP = [12, 16, 1] as const;
 
 export const ARTCNN_C4F16_PORT_PLAN: ArtCnnPortPlan = {
   enabled: false,
+  generatedMetadata: 'src/upscaler/modes/neural-lite/artcnn-c4f16-native-metadata.json',
   license: ARTCNN_UPSTREAM.license,
   localPreviewShader: 'src/upscaler/modes/neural-lite/artcnn-c4f16-preview.wgsl',
+  nativeSkeletonShader: 'src/upscaler/modes/neural-lite/artcnn-c4f16-native-skeleton.wgsl',
   reason:
     'ArtCNN_C4F16 needs a faithful multi-stage WGSL port of the upstream fused mpv Conv2D hooks and weights before it can be enabled.',
   sourceCommit: ARTCNN_UPSTREAM.verifiedCommit,
@@ -70,12 +76,52 @@ export const ARTCNN_C4F16_PORT_PLAN: ArtCnnPortPlan = {
       workgroupSize: ARTCNN_C4F16_WORKGROUP,
     },
     {
-      id: 'conv2d-3-output',
+      id: 'conv2d-3-relu',
       inputChannels: 16,
-      kind: 'conv2d-output',
-      outputChannels: 3,
+      kind: 'conv2d-relu',
+      outputChannels: 16,
       outputScale: 2,
-      upstreamDescription: 'ArtCNN C4F16 (Conv2D-3)',
+      upstreamDescription: 'ArtCNN C4F16 (Conv2D-3-ReLU)',
+      weightStatus: 'pending-port',
+      workgroupSize: ARTCNN_C4F16_WORKGROUP,
+    },
+    {
+      id: 'conv2d-4-relu',
+      inputChannels: 16,
+      kind: 'conv2d-relu',
+      outputChannels: 16,
+      outputScale: 2,
+      upstreamDescription: 'ArtCNN C4F16 (Conv2D-4-ReLU)',
+      weightStatus: 'pending-port',
+      workgroupSize: ARTCNN_C4F16_WORKGROUP,
+    },
+    {
+      id: 'conv2d-5',
+      inputChannels: 16,
+      kind: 'conv2d-linear',
+      outputChannels: 16,
+      outputScale: 2,
+      upstreamDescription: 'ArtCNN C4F16 (Conv2D-5)',
+      weightStatus: 'pending-port',
+      workgroupSize: ARTCNN_C4F16_WORKGROUP,
+    },
+    {
+      id: 'conv2d-6',
+      inputChannels: 32,
+      kind: 'conv2d-residual',
+      outputChannels: 4,
+      outputScale: 1,
+      upstreamDescription: 'ArtCNN C4F16 (Conv2D-6)',
+      weightStatus: 'pending-port',
+      workgroupSize: ARTCNN_C4F16_WORKGROUP,
+    },
+    {
+      id: 'depth-to-space',
+      inputChannels: 4,
+      kind: 'depth-to-space',
+      outputChannels: 1,
+      outputScale: 2,
+      upstreamDescription: 'ArtCNN C4F16 (Depth-To-Space)',
       weightStatus: 'pending-port',
       workgroupSize: ARTCNN_C4F16_WORKGROUP,
     },
@@ -86,4 +132,4 @@ export const getArtCnnPortStage = (id: string): ArtCnnPortStage | undefined =>
   ARTCNN_C4F16_PORT_PLAN.stages.find((stage) => stage.id === id);
 
 export const getArtCnnPortSummary = (): string =>
-  `${ARTCNN_C4F16_PORT_PLAN.sourceName} staged port: ${String(ARTCNN_C4F16_PORT_PLAN.stages.length)} upstream Conv2D stage(s), weights pending, mode disabled.`;
+  `${ARTCNN_C4F16_PORT_PLAN.sourceName} staged port: ${String(ARTCNN_C4F16_PORT_PLAN.stages.length)} upstream shader pass(es), weights pending, mode disabled.`;

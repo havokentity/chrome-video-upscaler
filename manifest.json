@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Chrome Video Upscaler",
   "description": "GPU video upscaling for HTML5 video in Chrome.",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "minimum_chrome_version": "121",
   "action": {
     "default_popup": "src/popup/index.html",

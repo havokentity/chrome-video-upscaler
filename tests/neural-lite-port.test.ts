@@ -19,21 +19,29 @@ describe('Neural-Lite ArtCNN staged port', () => {
   });
 
   it('describes the practical upstream pass shape without importing fake weights', () => {
-    expect(ARTCNN_C4F16_PORT_PLAN.stages).toHaveLength(4);
+    expect(ARTCNN_C4F16_PORT_PLAN.stages).toHaveLength(8);
     expect(ARTCNN_C4F16_PORT_PLAN.stages.map((stage) => stage.id)).toEqual([
       'conv2d',
       'conv2d-1-relu',
       'conv2d-2-relu',
-      'conv2d-3-output',
+      'conv2d-3-relu',
+      'conv2d-4-relu',
+      'conv2d-5',
+      'conv2d-6',
+      'depth-to-space',
     ]);
-    expect(ARTCNN_C4F16_PORT_PLAN.stages.map((stage) => stage.weightStatus)).toEqual([
-      'pending-port',
-      'pending-port',
-      'pending-port',
-      'pending-port',
-    ]);
-    expect(getArtCnnPortStage('conv2d')?.workgroupSize).toEqual([24, 32, 1]);
-    expect(getArtCnnPortStage('conv2d-3-output')?.outputChannels).toBe(3);
+    expect(ARTCNN_C4F16_PORT_PLAN.stages.map((stage) => stage.weightStatus)).toEqual(
+      Array.from({ length: 8 }, () => 'pending-port'),
+    );
+    expect(getArtCnnPortStage('conv2d')?.workgroupSize).toEqual([12, 16, 1]);
+    expect(getArtCnnPortStage('conv2d-6')?.kind).toBe('conv2d-residual');
+    expect(getArtCnnPortStage('depth-to-space')?.outputChannels).toBe(1);
+    expect(ARTCNN_C4F16_PORT_PLAN.generatedMetadata).toBe(
+      'src/upscaler/modes/neural-lite/artcnn-c4f16-native-metadata.json',
+    );
+    expect(ARTCNN_C4F16_PORT_PLAN.nativeSkeletonShader).toBe(
+      'src/upscaler/modes/neural-lite/artcnn-c4f16-native-skeleton.wgsl',
+    );
   });
 
   it('ships a Tint-valid preview WGSL file that is clearly marked non-production', () => {

@@ -56,8 +56,8 @@ export class WebGpuNeuralProPipeline implements FramePipeline {
       mode: 'neural-pro',
       plannedVariant,
       reason: [
-        `Neural-Pro/RAVU ${plannedVariant} is opt-in but disabled until the LGPL shader port is imported.`,
-        `Planned source: ${plannedSource.upstreamFile} (${RAVU_UPSTREAM.license}).`,
+        `Neural-Pro/RAVU ${plannedVariant} WebGPU is disabled until the imported shader port is translated.`,
+        `Source: ${plannedSource.upstreamFile} (${RAVU_UPSTREAM.license}).`,
         RAVU_ATTRIBUTION_TODO,
       ].join(' '),
       requestedVariant: options.variant,

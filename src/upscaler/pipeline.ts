@@ -143,7 +143,7 @@ export const createPipeline = async (
 
   if (requestedMode === 'neural-pro') {
     try {
-      return createWebGL2NeuralProPipeline(canvas, video, {
+      return await createWebGL2NeuralProPipeline(canvas, video, {
         scale: settings.scale,
         variant: settings.ravuVariant,
       });
