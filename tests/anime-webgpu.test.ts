@@ -34,7 +34,7 @@ describe('WebGPU Anime helpers', () => {
     expect(formatAnimeSubMode('mode-aa')).toBe('Mode A+A');
   });
 
-  it('uses source video dimensions when metadata is available', () => {
+  it('uses scaled source video dimensions when metadata is available', () => {
     expect(
       computeAnimeOutputSize({
         requestedHeight: 720,
@@ -44,6 +44,18 @@ describe('WebGPU Anime helpers', () => {
         sourceWidth: 1920,
       }),
     ).toEqual({ height: 1620, width: 2880 });
+  });
+
+  it('keeps Anime at display backing size when the page stretches tiny video', () => {
+    expect(
+      computeAnimeOutputSize({
+        requestedHeight: 2160,
+        requestedWidth: 3840,
+        scale: 1.5,
+        sourceHeight: 144,
+        sourceWidth: 256,
+      }),
+    ).toEqual({ height: 2160, width: 3840 });
   });
 
   it('falls back to requested canvas dimensions before metadata is available', () => {

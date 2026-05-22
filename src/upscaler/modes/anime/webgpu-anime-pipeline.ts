@@ -531,7 +531,7 @@ export class WebGpuAnimePipeline implements FramePipeline {
       sourceHeight,
       output.width,
       output.height,
-      0.72,
+      1.0,
       0.0,
       this.scale,
       this.subMode === 'mode-aa' ? 1 : 0,
@@ -542,7 +542,7 @@ export class WebGpuAnimePipeline implements FramePipeline {
       output.width,
       output.height,
       0.0,
-      0.42,
+      0.72,
       this.scale,
       1,
     ]);
@@ -596,10 +596,12 @@ export const computeAnimeOutputSize = ({
   const normalizedScale = normalizeAnimeScale(scale);
   const widthBasis = sourceWidth > 0 ? sourceWidth : requestedWidth;
   const heightBasis = sourceHeight > 0 ? sourceHeight : requestedHeight;
+  const scaledWidth = Math.round(widthBasis * normalizedScale);
+  const scaledHeight = Math.round(heightBasis * normalizedScale);
 
   return {
-    height: Math.max(1, Math.round(heightBasis * normalizedScale)),
-    width: Math.max(1, Math.round(widthBasis * normalizedScale)),
+    height: Math.max(1, requestedHeight, scaledHeight),
+    width: Math.max(1, requestedWidth, scaledWidth),
   };
 };
 

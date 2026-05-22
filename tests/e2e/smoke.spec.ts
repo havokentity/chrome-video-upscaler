@@ -162,6 +162,68 @@ const writeExtensionSettings = async (
     .toBe(settings.mode);
 };
 
+const sampleOverlay = async (page: Page): Promise<number[]> =>
+  page.locator('.mac-video-upscaler-overlay').last().evaluate((canvas) => {
+    const source = canvas as HTMLCanvasElement;
+    const sampler = document.createElement('canvas');
+    sampler.width = 24;
+    sampler.height = 24;
+    const context2d = sampler.getContext('2d', { willReadFrequently: true });
+    if (!context2d) {
+      throw new Error('2D sampler unavailable.');
+    }
+
+    context2d.drawImage(source, 0, 0, sampler.width, sampler.height);
+    const data = context2d.getImageData(0, 0, sampler.width, sampler.height).data;
+    const sample: number[] = [];
+    for (let index = 0; index < data.length; index += 4) {
+      sample.push(data[index], data[index + 1], data[index + 2]);
+    }
+    return sample;
+  });
+
+const sampleDelta = (left: readonly number[], right: readonly number[]): number => {
+  let delta = 0;
+  for (let index = 0; index < Math.min(left.length, right.length); index += 1) {
+    delta += Math.abs(left[index] - right[index]);
+  }
+  return delta / Math.max(1, Math.min(left.length, right.length));
+};
+
+const pauseOnStillFrame = async (page: Page): Promise<void> => {
+  await page.locator('#sample-video').evaluate(async (element) => {
+    const video = element as HTMLVideoElement;
+    video.pause();
+    const targetTime =
+      Number.isFinite(video.duration) && video.duration > 0
+        ? Math.min(0.5, Math.max(0.05, video.duration * 0.25))
+        : 0.5;
+
+    if (Math.abs(video.currentTime - targetTime) > 0.01) {
+      await new Promise<void>((resolve, reject) => {
+        let timeout = 0;
+        const handleSeeked = (): void => {
+          window.clearTimeout(timeout);
+          resolve();
+        };
+        timeout = window.setTimeout(() => {
+          video.removeEventListener('seeked', handleSeeked);
+          reject(new Error('Timed out waiting for still-frame seek.'));
+        }, 5000);
+
+        video.addEventListener('seeked', handleSeeked, { once: true });
+        video.currentTime = targetTime;
+      });
+    }
+
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        resolve();
+      });
+    });
+  });
+};
+
 test('built extension mounts an overlay canvas on a local MP4 video', async ({ browserName }, testInfo) => {
   test.skip(browserName !== 'chromium', 'Chrome extensions can only be loaded in Chromium.');
 
@@ -282,40 +344,6 @@ test('Crisp sharpness changes the rendered WebGL2 output', async ({
   const server = await startStaticServer(fixturesPath);
   let context: BrowserContext | undefined;
 
-  const sampleOverlay = async (page: Page) =>
-    page.locator('.mac-video-upscaler-overlay').evaluate((canvas) => {
-      const source = canvas as HTMLCanvasElement;
-      const sampler = document.createElement('canvas');
-      sampler.width = 24;
-      sampler.height = 24;
-      const context2d = sampler.getContext('2d', { willReadFrequently: true });
-      if (!context2d) {
-        throw new Error('2D sampler unavailable.');
-      }
-
-      context2d.drawImage(source, 0, 0, sampler.width, sampler.height);
-      const data = context2d.getImageData(0, 0, sampler.width, sampler.height).data;
-      const sample: number[] = [];
-      for (let index = 0; index < data.length; index += 4) {
-        sample.push(data[index], data[index + 1], data[index + 2]);
-      }
-      return sample;
-    });
-  const sampleDelta = (left: readonly number[], right: readonly number[]): number => {
-    let delta = 0;
-    for (let index = 0; index < Math.min(left.length, right.length); index += 1) {
-      delta += Math.abs(left[index] - right[index]);
-    }
-    return delta / Math.max(1, Math.min(left.length, right.length));
-  };
-  const nudgeVideoFrame = async (page: Page): Promise<void> => {
-    await page.locator('#sample-video').evaluate((element) => {
-      const video = element as HTMLVideoElement;
-      video.currentTime = 0.05;
-      void video.play();
-    });
-  };
-
   try {
     context = await createExtensionContext(testInfo.workerIndex + 125);
     await writeExtensionSettings(context, {
@@ -330,7 +358,7 @@ test('Crisp sharpness changes the rendered WebGL2 output', async ({
     const page = context.pages()[0] ?? (await context.newPage());
     await page.goto(server.origin, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('.mac-video-upscaler-overlay')).toHaveCount(1, { timeout: 10_000 });
-    await nudgeVideoFrame(page);
+    await pauseOnStillFrame(page);
     await expect(page.locator('#sample-video')).toHaveCSS('opacity', '0', { timeout: 10_000 });
     await expect(page.locator('.mac-video-upscaler-hud')).toContainText('0');
     const softSample = await sampleOverlay(page);
@@ -344,7 +372,7 @@ test('Crisp sharpness changes the rendered WebGL2 output', async ({
       scale: 2,
     });
     await expect(page.locator('.mac-video-upscaler-overlay')).toHaveCount(1, { timeout: 10_000 });
-    await nudgeVideoFrame(page);
+    await pauseOnStillFrame(page);
     await expect(page.locator('#sample-video')).toHaveCSS('opacity', '0', { timeout: 10_000 });
     await expect(page.locator('.mac-video-upscaler-hud')).toContainText('1.00', {
       timeout: 10_000,
@@ -352,6 +380,59 @@ test('Crisp sharpness changes the rendered WebGL2 output', async ({
     await expect
       .poll(async () => sampleDelta(await sampleOverlay(page), softSample), { timeout: 10_000 })
       .toBeGreaterThan(0.5);
+  } finally {
+    await closeContext(context);
+    await server.close();
+  }
+});
+
+test('Sharpen changes the rendered WebGL2 output on a paused frame', async ({
+  browserName,
+}, testInfo) => {
+  test.skip(browserName !== 'chromium', 'Chrome extensions can only be loaded in Chromium.');
+
+  expect(
+    existsSync(path.join(extensionPath, 'manifest.json')),
+    'Run `pnpm build` before `pnpm test:e2e`; this test loads the unpacked extension from dist.',
+  ).toBe(true);
+
+  const server = await startStaticServer(fixturesPath);
+  let context: BrowserContext | undefined;
+
+  try {
+    context = await createExtensionContext(testInfo.workerIndex + 135);
+    await writeExtensionSettings(context, {
+      ...DEFAULT_SETTINGS,
+      forceWebGL2: true,
+      fsrSharpness: 0,
+      hudEnabled: true,
+      mode: 'sharpen',
+    });
+
+    const page = context.pages()[0] ?? (await context.newPage());
+    await page.goto(server.origin, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.mac-video-upscaler-overlay')).toHaveCount(1, { timeout: 10_000 });
+    await pauseOnStillFrame(page);
+    await expect(page.locator('#sample-video')).toHaveCSS('opacity', '0', { timeout: 10_000 });
+    await expect(page.locator('.mac-video-upscaler-hud').last()).toContainText('0');
+    const softSample = await sampleOverlay(page);
+
+    await writeExtensionSettings(context, {
+      ...DEFAULT_SETTINGS,
+      forceWebGL2: true,
+      fsrSharpness: 1,
+      hudEnabled: true,
+      mode: 'sharpen',
+    });
+    await expect(page.locator('.mac-video-upscaler-overlay')).toHaveCount(1, { timeout: 10_000 });
+    await pauseOnStillFrame(page);
+    await expect(page.locator('#sample-video')).toHaveCSS('opacity', '0', { timeout: 10_000 });
+    await expect(page.locator('.mac-video-upscaler-hud').last()).toContainText('1.00', {
+      timeout: 10_000,
+    });
+    await expect
+      .poll(async () => sampleDelta(await sampleOverlay(page), softSample), { timeout: 10_000 })
+      .toBeGreaterThan(0.15);
   } finally {
     await closeContext(context);
     await server.close();
@@ -382,6 +463,7 @@ test('enabled setting rebuilds the active overlay without a page refresh', async
     const page = context.pages()[0] ?? (await context.newPage());
     await page.goto(server.origin, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('.mac-video-upscaler-overlay')).toHaveCount(1, { timeout: 10_000 });
+    await pauseOnStillFrame(page);
     await page.keyboard.press('Control+Shift+U');
     await expect(page.locator('.mac-video-upscaler-hud')).toContainText('webgl2 crisp');
     await expect(page.locator('#sample-video')).toHaveCSS('opacity', '0', { timeout: 10_000 });
@@ -494,8 +576,12 @@ const routedModeCases: Array<{
 }> = [
   { mode: 'none', expectedHudText: 'disabled none', expectedVideoOpacity: '1' },
   { mode: 'sharpen', expectedHudText: 'sharpen' },
-  { mode: 'anime', expectedHudText: 'anime', settings: { animeSubMode: 'mode-a' } },
-  { mode: 'smooth', expectedHudText: 'smooth' },
+  {
+    mode: 'anime',
+    expectedHudText: 'anime',
+    settings: { animeSubMode: 'mode-a', forceWebGL2: true },
+  },
+  { mode: 'smooth', expectedHudText: 'smooth', settings: { forceWebGL2: true } },
   { mode: 'edge', expectedHudText: 'edge' },
   { mode: 'night-vision', expectedHudText: 'night-vision' },
   { mode: 'predator', expectedHudText: 'predator' },

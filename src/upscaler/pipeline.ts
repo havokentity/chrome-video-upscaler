@@ -80,7 +80,6 @@ export const createPipeline = async (
     return new DisabledPipeline('Extension disabled.');
   }
 
-  let webgpuFailure: string | undefined;
   const requestedMode = settings.mode;
   if (requestedMode === 'none') {
     return new DisabledPipeline('Native video passthrough active.', 'none');
@@ -124,6 +123,20 @@ export const createPipeline = async (
   }
 
   if (mode === 'crisp') {
+    let webgl2Failure: string | undefined;
+
+    try {
+      const pipeline = createWebGL2CrispPipeline(canvas, video, {
+        scale: settings.scale,
+        sharpness: settings.fsrSharpness,
+      });
+      pipeline.status.mode = requestedMode === 'auto' ? `auto -> ${mode}` : mode;
+      pipeline.status.reason = `${autoPrefix}FSR 1.0-style WebGL2 upscale active at ${settings.scale.toFixed(1)}x; sharpness ${settings.fsrSharpness.toFixed(2)}.`;
+      return pipeline;
+    } catch (error) {
+      webgl2Failure = getErrorMessage(error, 'Unknown WebGL2 Crisp error.');
+    }
+
     if ('gpu' in navigator && navigator.gpu && !settings.forceWebGL2) {
       try {
         const pipeline = await WebGpuCrispPipeline.create({
@@ -138,29 +151,28 @@ export const createPipeline = async (
         pipeline.status.reason = `${autoPrefix}${pipeline.status.reason ?? ''}`.trim();
         return pipeline;
       } catch (error) {
-        webgpuFailure = getErrorMessage(error, 'Unknown WebGPU Crisp initialization error.');
+        const reason = getErrorMessage(error, 'Unknown WebGPU Crisp initialization error.');
+        return new DisabledPipeline(`WebGL2 Crisp failed: ${webgl2Failure}; WebGPU Crisp failed: ${reason}`);
       }
     }
 
-    try {
-      const pipeline = createWebGL2CrispPipeline(canvas, video, {
-        scale: settings.scale,
-        sharpness: settings.fsrSharpness,
-      });
-      pipeline.status.mode = requestedMode === 'auto' ? `auto -> ${mode}` : mode;
-      pipeline.status.reason = webgpuFailure
-        ? `${autoPrefix}FSR 1.0-style WebGL2 fallback active; WebGPU Crisp unavailable: ${webgpuFailure}`
-        : `${autoPrefix}FSR 1.0-style WebGL2 upscale active at ${settings.scale.toFixed(1)}x; sharpness ${settings.fsrSharpness.toFixed(2)}.`;
-      return pipeline;
-    } catch (error) {
-      const reason = getErrorMessage(error, 'Unknown WebGL2 Crisp error.');
-      return new DisabledPipeline(
-        webgpuFailure ? `WebGPU Crisp failed: ${webgpuFailure}; WebGL2 Crisp failed: ${reason}` : reason,
-      );
-    }
+    return new DisabledPipeline(`WebGL2 Crisp failed: ${webgl2Failure}`);
   }
 
   if (mode === 'sharpen') {
+    let webgl2Failure: string | undefined;
+
+    try {
+      const pipeline = createWebGL2SharpenPipeline(canvas, video, {
+        sharpness: settings.fsrSharpness,
+      });
+      pipeline.status.mode = requestedMode === 'auto' ? `auto -> ${mode}` : mode;
+      pipeline.status.reason = `${autoPrefix}CAS-style WebGL2 sharpen active; sharpness ${settings.fsrSharpness.toFixed(2)}.`;
+      return pipeline;
+    } catch (error) {
+      webgl2Failure = getErrorMessage(error, 'Unknown WebGL2 Sharpen error.');
+    }
+
     if ('gpu' in navigator && navigator.gpu && !settings.forceWebGL2) {
       try {
         const pipeline = await WebGpuSharpenPipeline.create({
@@ -173,27 +185,12 @@ export const createPipeline = async (
         pipeline.status.reason = `${autoPrefix}${pipeline.status.reason ?? ''}`.trim();
         return pipeline;
       } catch (error) {
-        webgpuFailure = getErrorMessage(error, 'Unknown WebGPU Sharpen initialization error.');
+        const reason = getErrorMessage(error, 'Unknown WebGPU Sharpen initialization error.');
+        return new DisabledPipeline(`WebGL2 Sharpen failed: ${webgl2Failure}; WebGPU Sharpen failed: ${reason}`);
       }
     }
 
-    try {
-      const pipeline = createWebGL2SharpenPipeline(canvas, video, {
-        sharpness: settings.fsrSharpness,
-      });
-      pipeline.status.mode = requestedMode === 'auto' ? `auto -> ${mode}` : mode;
-      pipeline.status.reason = webgpuFailure
-        ? `${autoPrefix}CAS-style WebGL2 fallback active; WebGPU Sharpen unavailable: ${webgpuFailure}`
-        : `${autoPrefix}CAS-style WebGL2 sharpen active at 1.0x; sharpness ${settings.fsrSharpness.toFixed(2)}.`;
-      return pipeline;
-    } catch (error) {
-      const reason = getErrorMessage(error, 'Unknown WebGL2 Sharpen error.');
-      return new DisabledPipeline(
-        webgpuFailure
-          ? `WebGPU Sharpen failed: ${webgpuFailure}; WebGL2 Sharpen failed: ${reason}`
-          : reason,
-      );
-    }
+    return new DisabledPipeline(`WebGL2 Sharpen failed: ${webgl2Failure}`);
   }
 
   if (mode === 'anime') {

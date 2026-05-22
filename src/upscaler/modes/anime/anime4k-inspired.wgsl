@@ -63,8 +63,12 @@ fn anime_mode_a_color(output_pixel: vec2u) -> vec3f {
   let edge_weight = smoothstep(0.025, 0.18, edge_energy);
   let strength = params.controls.x;
   let line_color = mix(line_axis_blend, diagonal_blend, grid_bias);
+  let ink = smoothstep(0.045, 0.22, edge_energy);
+  let posterized = floor(pow(center, vec3f(0.9)) * 7.0 + 0.5) / 7.0;
+  let stylized = mix(center, posterized, 0.22 + strength * 0.18);
+  let line_enhanced = mix(stylized, line_color, edge_weight * strength);
 
-  return clamp(mix(center, line_color, edge_weight * strength), vec3f(0.0), vec3f(1.0));
+  return clamp(mix(line_enhanced, line_enhanced * 0.72, ink * 0.45 * strength), vec3f(0.0), vec3f(1.0));
 }
 
 @compute @workgroup_size(8, 8, 1)
@@ -102,7 +106,11 @@ fn restore_main(@builtin(global_invocation_id) invocation_id: vec3u) {
   let edge_contrast = max(local_max.r, max(local_max.g, local_max.b)) -
     min(local_min.r, min(local_min.g, local_min.b));
   let restore_strength = params.controls.y * mix(0.85, 0.25, smoothstep(0.04, 0.28, edge_contrast));
-  let restored = center + detail * restore_strength;
+  var restored = center + detail * restore_strength;
+  let saturation_luma = luma(restored);
+  restored = mix(vec3f(saturation_luma), restored, 1.12 + params.controls.y * 0.18);
+  let boosted_luma = clamp(0.5 + (saturation_luma - 0.5) * (1.0 + params.controls.y * 0.22), 0.0, 1.0);
+  restored *= boosted_luma / max(saturation_luma, 0.001);
 
-  textureStore(output_texture, pixel, vec4f(clamp(restored, local_min, local_max), 1.0));
+  textureStore(output_texture, pixel, vec4f(clamp(restored, max(vec3f(0.0), local_min - vec3f(0.08)), min(vec3f(1.0), local_max + vec3f(0.08))), 1.0));
 }

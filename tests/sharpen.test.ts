@@ -11,7 +11,7 @@ describe('Sharpen helpers', () => {
     expect(normalizeSharpenSharpness(2)).toBe(1);
   });
 
-  it('keeps Sharpen at native source resolution', () => {
+  it('renders Sharpen at least to native source resolution', () => {
     expect(
       computeSharpenOutputSize({
         requestedHeight: 720,
@@ -20,6 +20,17 @@ describe('Sharpen helpers', () => {
         sourceWidth: 1920,
       }),
     ).toEqual({ height: 1080, width: 1920 });
+  });
+
+  it('keeps Sharpen at display backing size when the page stretches tiny video', () => {
+    expect(
+      computeSharpenOutputSize({
+        requestedHeight: 2160,
+        requestedWidth: 3840,
+        sourceHeight: 144,
+        sourceWidth: 256,
+      }),
+    ).toEqual({ height: 2160, width: 3840 });
   });
 
   it('falls back to requested canvas dimensions before metadata is available', () => {

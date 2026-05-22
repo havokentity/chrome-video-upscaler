@@ -54,7 +54,12 @@ fn fragment_main(input: VertexOutput) -> @location(0) vec4f {
   let contrast = max(local_max.r, max(local_max.g, local_max.b)) -
     min(local_min.r, min(local_min.g, local_min.b));
   let gain = uniforms.sharpness * mix(0.85, 0.25, smoothstep(0.02, 0.35, contrast));
-  let sharpened = center + (center - blur) * gain;
+  var sharpened = center + (center - blur) * gain;
+  let luma_center = dot(center, vec3f(0.2126, 0.7152, 0.0722));
+  let clarity = uniforms.sharpness * 0.24;
+  let saturated = mix(vec3f(luma_center), sharpened, 1.0 + clarity);
+  let boosted_luma = clamp(0.5 + (luma_center - 0.5) * (1.0 + clarity), 0.0, 1.0);
+  sharpened = saturated * (boosted_luma / max(luma_center, 0.001));
 
-  return vec4f(clamp(sharpened, local_min, local_max), 1.0);
+  return vec4f(clamp(sharpened, max(vec3f(0.0), local_min - vec3f(0.08)), min(vec3f(1.0), local_max + vec3f(0.08))), 1.0);
 }

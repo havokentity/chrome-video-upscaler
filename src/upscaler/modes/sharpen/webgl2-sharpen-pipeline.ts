@@ -40,8 +40,13 @@ void main() {
     min(localMin.r, min(localMin.g, localMin.b));
   float gain = u_sharpness * mix(0.85, 0.25, smoothstep(0.02, 0.35, contrast));
   vec3 sharpened = center + (center - blur) * gain;
+  float lumaCenter = dot(center, vec3(0.2126, 0.7152, 0.0722));
+  float clarity = u_sharpness * 0.24;
+  vec3 saturated = mix(vec3(lumaCenter), sharpened, 1.0 + clarity);
+  float boostedLuma = clamp(0.5 + (lumaCenter - 0.5) * (1.0 + clarity), 0.0, 1.0);
+  sharpened = saturated * (boostedLuma / max(lumaCenter, 0.001));
 
-  out_color = vec4(clamp(sharpened, localMin, localMax), 1.0);
+  out_color = vec4(clamp(sharpened, max(vec3(0.0), localMin - vec3(0.08)), min(vec3(1.0), localMax + vec3(0.08))), 1.0);
 }
 `;
 
@@ -103,6 +108,7 @@ export class WebGL2SharpenPipeline implements FramePipeline {
     this.canvas = canvas;
     this.video = video;
     this.sharpness = normalizeSharpenSharpness(options.sharpness);
+    Object.assign(this.status, { sharpness: this.sharpness });
 
     const gl = canvas.getContext('webgl2', {
       alpha: options.alpha ?? true,
@@ -111,7 +117,7 @@ export class WebGL2SharpenPipeline implements FramePipeline {
       desynchronized: options.desynchronized ?? true,
       powerPreference: 'high-performance',
       premultipliedAlpha: false,
-      preserveDrawingBuffer: false,
+      preserveDrawingBuffer: true,
       stencil: false,
     });
 
@@ -144,6 +150,7 @@ export class WebGL2SharpenPipeline implements FramePipeline {
   setSharpness(sharpness: number): void {
     assertAlive(this.destroyed);
     this.sharpness = normalizeSharpenSharpness(sharpness);
+    Object.assign(this.status, { sharpness: this.sharpness });
   }
 
   renderFrame(): void {
@@ -240,10 +247,15 @@ export const computeSharpenOutputSize = ({
   requestedWidth,
   sourceHeight,
   sourceWidth,
-}: ComputeSharpenOutputSizeInput): SharpenOutputSize => ({
-  height: Math.max(1, Math.round(sourceHeight > 0 ? sourceHeight : requestedHeight)),
-  width: Math.max(1, Math.round(sourceWidth > 0 ? sourceWidth : requestedWidth)),
-});
+}: ComputeSharpenOutputSizeInput): SharpenOutputSize => {
+  const sourceBackedHeight = Math.round(sourceHeight > 0 ? sourceHeight : requestedHeight);
+  const sourceBackedWidth = Math.round(sourceWidth > 0 ? sourceWidth : requestedWidth);
+
+  return {
+    height: Math.max(1, requestedHeight, sourceBackedHeight),
+    width: Math.max(1, requestedWidth, sourceBackedWidth),
+  };
+};
 
 const createShader = (
   gl: WebGL2RenderingContext,

@@ -1,12 +1,12 @@
 .mac-video-upscaler-overlay {
-  position: absolute;
-  z-index: 2147483646;
+  position: fixed;
+  z-index: 1;
   pointer-events: none;
   background: transparent;
 }
 
 .mac-video-upscaler-hud {
-  position: absolute;
+  position: fixed;
   z-index: 2147483647;
   max-width: min(360px, calc(100vw - 24px));
   padding: 8px 10px;

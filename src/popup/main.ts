@@ -148,7 +148,7 @@ const updateModeControls = (): void => {
       : isNone
         ? 'The extension stays enabled, but the native video is passed through unchanged.'
         : isCrispLike
-          ? 'Crisp uses WebGPU first and falls back to WebGL2.'
+          ? 'Crisp uses the visually verified WebGL2 path first, with WebGPU fallback.'
         : isAnime
           ? 'Anime requires WebGPU and uses the selected Anime4K sub-mode.'
           : isFunFilter

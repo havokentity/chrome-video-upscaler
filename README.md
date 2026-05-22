@@ -2,7 +2,7 @@
 
 Metal-tuned GPU video upscaling for Chrome on macOS. The project targets Manifest V3, WebGPU through Dawn/Tint/Metal, and a WebGL2 fallback for the fast modes.
 
-This repository is being built in ordered milestones. The current build mounts a video overlay, routes Auto, Crisp, Sharpen, Anime, Smooth, and experimental WebGL2 filters through working shader paths, persists global and per-site settings, and exposes a HUD with backend, mode, resolution, FPS, frame-generation target, and status details. The HUD can be toggled from the popup or with `Ctrl+Shift+U`, and its visibility persists across settings changes. Neural-Lite and Neural-Pro have attribution-aware disabled skeletons until their real shader ports land.
+This repository is being built in ordered milestones. The current build mounts a video overlay, routes Auto, Crisp, Sharpen, Anime, Smooth, and experimental WebGL2 filters through working shader paths, persists global and per-site settings, and exposes a HUD with backend, mode, resolution, FPS, frame-generation target, and status details. The HUD can be toggled from the popup or with `Ctrl+Shift+U`, and its visibility persists across settings changes. The overlay also redraws the current decoded frame while paused, which makes still-frame visual comparisons easier. Neural-Lite and Neural-Pro have attribution-aware disabled skeletons until their real shader ports land.
 
 ## Install for Development
 
@@ -26,9 +26,9 @@ pnpm dev
 | --- | --- | --- | --- |
 | None | Disabled | MIT | Passthrough option for native video with no filter or upscaling. |
 | Auto | WebGPU/WebGL2 | MIT | Cheap first-frame classifier; Neural-Pro remains opt-in. |
-| Crisp | WebGPU + WebGL2 | MIT | FSR 1.0-inspired EASU 12-tap reconstruction plus stronger RCAS/detail sharpening, with extra boost for tiny sources such as 144p. The canvas renders at least to the video display backing size so Chrome does not blur the result with a second upscale. WebGPU currently uses the f32 quality path while the f16 port is revalidated. |
-| Sharpen | WebGPU + WebGL2 | MIT | CAS-style 1.0x sharpen with WebGPU and WebGL2 paths. |
-| Anime | WebGPU | MIT | Anime4K-inspired Mode A and A+A milestone path; exact upstream chain remains planned. |
+| Crisp | WebGL2 + WebGPU | MIT | FSR 1.0-inspired EASU 12-tap reconstruction plus stronger RCAS/detail sharpening, with extra boost for tiny sources such as 144p. Crisp currently prefers the visually verified WebGL2 path and falls back to WebGPU if needed. The canvas renders at least to the video display backing size so Chrome does not blur the result with a second upscale. |
+| Sharpen | WebGL2 + WebGPU | MIT | Stronger CAS-style 1.0x sharpen with WebGL2 preferred, WebGPU fallback, and output sized to the display backing so stretched low-res video is processed after the browser layout scale. |
+| Anime | WebGPU | MIT | More assertive Anime4K-inspired Mode A and A+A milestone path with line emphasis and posterized restoration; exact upstream chain remains planned. |
 | Smooth | WebGPU | Public-domain math | Lanczos/Jinc-style WebGPU upscaler; fuller EWA pass remains planned. |
 | Edge Detect | WebGL2 | MIT | Experimental outline filter for inspecting edges and compression artifacts. |
 | Night Vision | WebGL2 | MIT | Experimental green phosphor filter with scanline/noise styling. |
@@ -43,14 +43,15 @@ pnpm dev
 
 The content script finds visible `<video>` elements, mounts a pointer-transparent canvas over the video box, resolves global settings plus allow/block/site overrides for the current hostname, and hands frames to a reusable upscaler pipeline. The original video is kept in the page for audio, controls, captions, fullscreen, and site event handling, then visually hidden while the overlay presents processed frames. Blocked or allow-list-missed sites keep the original video visible and show the disable reason in the HUD.
 
-WebGPU is preferred on macOS Chrome 121+; WebGL2 is retained as a fallback for Crisp and Sharpen. The current WebGPU paths upload frames with `copyExternalImageToTexture`, reuse GPU resources, validate WGSL through Tint to MSL, and use `8x8x1` compute workgroups where compute is active. Crisp currently uses the f32 quality shader while the updated f16 port is revalidated.
+Crisp and Sharpen currently prefer the WebGL2 paths because those are the visually verified live-video implementations; WebGPU remains available as a fallback for those modes and is required for Anime and Smooth. The current WebGPU paths upload frames with `copyExternalImageToTexture`, reuse GPU resources, validate WGSL through Tint to MSL, and use `8x8x1` compute workgroups where compute is active.
 
 Experimental frame generation is a presentation pacing option: it asks the overlay to render at a 60 fps or 120 fps target instead of waiting only for decoded video frame callbacks. This is useful for responsiveness testing and display pacing, but it is not optical-flow motion interpolation yet.
 
 ## Verification Status
 
 - Generic HTML5 MP4 fixture: automated Playwright smoke test loads the unpacked extension from `dist`, mounts the overlay, and verifies nonzero canvas dimensions.
-- WebGL2 Crisp: automated Playwright smoke test writes extension settings, activates Crisp, verifies HUD mode text, and checks 1.5x backing resolution.
+- WebGL2 Crisp: automated Playwright smoke test writes extension settings, activates Crisp, verifies HUD mode text, checks backing resolution, and pixel-diffs sharpness changes on a paused frame.
+- WebGL2 Sharpen: automated Playwright smoke test pixel-diffs CAS sharpness changes on a paused frame.
 - Routed modes: automated Playwright smoke verifies Sharpen, Anime, Smooth, Neural-Lite, and Neural-Pro reach their expected HUD status.
 - Per-site controls: automated Playwright smoke verifies a blocked hostname disables the overlay pipeline without hiding the original video.
 - WebGPU shaders: CI validates WGSL to MSL with Dawn Tint.

@@ -82,7 +82,11 @@ export class VideoOverlay {
       this.video.style.opacity = this.previousVideoOpacity;
     }
     this.renderHud();
-    this.scheduleFrame();
+    if (this.video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      this.renderFrame();
+    } else {
+      this.scheduleFrame();
+    }
     return true;
   }
 
@@ -116,7 +120,7 @@ export class VideoOverlay {
       return;
     }
 
-    if (this.frameGenerationEnabled) {
+    if (this.frameGenerationEnabled || this.video.paused || this.video.ended) {
       this.animationFrameHandle = requestAnimationFrame((now) => {
         this.renderFrame(now);
       });
@@ -195,15 +199,15 @@ export class VideoOverlay {
     }
 
     Object.assign(this.canvas.style, {
-      left: `${String(rect.left + scrollX)}px`,
-      top: `${String(rect.top + scrollY)}px`,
+      left: `${String(rect.left)}px`,
+      top: `${String(rect.top)}px`,
       width: `${String(rect.width)}px`,
       height: `${String(rect.height)}px`,
     });
 
     Object.assign(this.hud.style, {
-      left: `${String(rect.left + scrollX + 12)}px`,
-      top: `${String(rect.top + scrollY + 12)}px`,
+      left: `${String(rect.left + 12)}px`,
+      top: `${String(rect.top + 12)}px`,
     });
   }
 

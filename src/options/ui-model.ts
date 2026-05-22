@@ -95,7 +95,7 @@ export const getModeControlState = (mode: UpscalerMode): ModeControlState => {
           ? 'Smooth is WebGPU-only.'
           : isFunFilter
             ? 'Experimental filter rendered with WebGL2.'
-            : 'Uses WebGPU first and falls back where supported.'
+          : 'Crisp and Sharpen use WebGL2 first while WebGPU quality paths are revalidated.'
       : 'Visible for planning; disabled until its shader implementation lands.',
   };
 };
