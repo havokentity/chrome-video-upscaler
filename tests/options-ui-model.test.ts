@@ -9,10 +9,14 @@ describe('options UI model', () => {
     expect(MODE_LABELS.sharpen).toContain('CAS');
     expect(MODE_LABELS.anime).toContain('Anime4K');
     expect(MODE_LABELS.smooth).toContain('Lanczos');
+    expect(MODE_LABELS.edge).toContain('Edge');
+    expect(MODE_LABELS['night-vision']).toContain('Night');
+    expect(MODE_LABELS.predator).toContain('Predator');
   });
 
   it('keeps future modes visible but disabled', () => {
     expect(isImplementedMode('anime')).toBe(true);
+    expect(isImplementedMode('predator')).toBe(true);
     expect(isImplementedMode('neural-lite')).toBe(false);
     expect(isImplementedMode('neural-pro')).toBe(false);
     expect(MODE_LABELS['neural-pro']).toContain('coming soon');
@@ -37,6 +41,12 @@ describe('options UI model', () => {
       animeVisible: true,
       implemented: true,
       sharpnessVisible: false,
+    });
+    expect(getModeControlState('night-vision')).toMatchObject({
+      implemented: true,
+      scaleVisible: true,
+      sharpnessVisible: false,
+      supportNote: 'Experimental filter rendered with WebGL2.',
     });
   });
 

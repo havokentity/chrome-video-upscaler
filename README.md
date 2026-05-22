@@ -29,6 +29,9 @@ pnpm dev
 | Sharpen | WebGPU + WebGL2 | MIT | CAS-style 1.0x sharpen with WebGPU and WebGL2 paths. |
 | Anime | WebGPU | MIT | Anime4K-inspired Mode A and A+A milestone path; exact upstream chain remains planned. |
 | Smooth | WebGPU | Public-domain math | Lanczos/Jinc-style WebGPU upscaler; fuller EWA pass remains planned. |
+| Edge Detect | WebGL2 | MIT | Experimental outline filter for inspecting edges and compression artifacts. |
+| Night Vision | WebGL2 | MIT | Experimental green phosphor filter with scanline/noise styling. |
+| Predator | WebGL2 | MIT | Experimental thermal false-color filter for fun. |
 | Neural-Lite | WebGPU | MIT | ArtCNN attribution verified; shader port pending. |
 | Neural-Pro | WebGPU | LGPL-3.0-or-later | RAVU-Zoom and RAVU-Lite attribution skeleton; shader import pending. |
 

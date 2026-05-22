@@ -2,8 +2,10 @@ import { detectSite, selectLargestVisibleVideo } from '../common/site';
 import { VideoOverlay } from '../overlay/video-overlay';
 
 const overlays = new WeakMap<HTMLVideoElement, VideoOverlay>();
-const pendingVideos = new WeakSet<HTMLVideoElement>();
+let pendingVideos = new WeakSet<HTMLVideoElement>();
+const managedVideos = new Set<HTMLVideoElement>();
 let youtubeRescanHandle: number | undefined;
+let overlayGeneration = 0;
 
 const attachVideo = (video: HTMLVideoElement): void => {
   if (overlays.has(video) || pendingVideos.has(video)) {
@@ -11,9 +13,15 @@ const attachVideo = (video: HTMLVideoElement): void => {
   }
 
   const overlay = new VideoOverlay(video);
+  const generation = overlayGeneration;
   pendingVideos.add(video);
   void overlay.mount().then((mounted) => {
     pendingVideos.delete(video);
+
+    if (generation !== overlayGeneration) {
+      overlay.destroy();
+      return;
+    }
 
     if (mounted) {
       if (
@@ -25,6 +33,7 @@ const attachVideo = (video: HTMLVideoElement): void => {
       }
 
       overlays.set(video, overlay);
+      managedVideos.add(video);
     }
   });
 };
@@ -51,6 +60,7 @@ const syncYouTubeVideos = (): void => {
 
     overlays.get(video)?.destroy();
     overlays.delete(video);
+    managedVideos.delete(video);
     pendingVideos.delete(video);
   });
 };
@@ -97,6 +107,7 @@ const observer = new MutationObserver((mutations) => {
       videos.forEach((video) => {
         overlays.get(video)?.destroy();
         overlays.delete(video);
+        managedVideos.delete(video);
       });
     });
   }
@@ -109,6 +120,17 @@ observer.observe(document.documentElement, {
   childList: true,
   subtree: true,
 });
+
+const rebuildOverlays = (): void => {
+  overlayGeneration += 1;
+  pendingVideos = new WeakSet<HTMLVideoElement>();
+  managedVideos.forEach((video) => {
+    overlays.get(video)?.destroy();
+    overlays.delete(video);
+  });
+  managedVideos.clear();
+  scanVideos();
+};
 
 chrome.runtime.onMessage.addListener((message: unknown) => {
   if (
@@ -123,6 +145,14 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
   }
 });
 
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== 'sync' || (!('settings' in changes) && !('siteRules' in changes))) {
+    return;
+  }
+
+  rebuildOverlays();
+});
+
 window.addEventListener('pagehide', () => {
   observer.disconnect();
   if (youtubeRescanHandle !== undefined) {
@@ -131,5 +161,6 @@ window.addEventListener('pagehide', () => {
   document.querySelectorAll('video').forEach((video) => {
     overlays.get(video)?.destroy();
     overlays.delete(video);
+    managedVideos.delete(video);
   });
 });

@@ -8,6 +8,9 @@ const MODE_LABELS: Record<UpscalerMode, string> = {
   sharpen: 'Sharpen (CAS)',
   anime: 'Anime (Anime4K)',
   smooth: 'Smooth (Lanczos)',
+  edge: 'Edge Detect',
+  'night-vision': 'Night Vision',
+  predator: 'Predator',
   'neural-lite': 'Neural-Lite (coming soon)',
   'neural-pro': 'Neural-Pro (coming soon)',
 };
@@ -18,11 +21,23 @@ const MODE_NOTES: Record<UpscalerMode, string> = {
   sharpen: 'CAS-style edge enhancement at native size.',
   anime: 'Anime4K-inspired WebGPU shader chain for animation and illustration.',
   smooth: 'Cleaner Lanczos/Jinc-style spatial scaling for softer live action.',
+  edge: 'Experimental cyan edge overlay for inspecting outlines and compression artifacts.',
+  'night-vision': 'Experimental green phosphor look with scanline/noise texture.',
+  predator: 'Experimental thermal false-color filter. For science. Mostly.',
   'neural-lite': 'ArtCNN integration is reserved for the next neural milestone.',
   'neural-pro': 'RAVU integration is reserved for the LGPL shader milestone.',
 };
 
-const IMPLEMENTED_MODES = new Set<UpscalerMode>(['auto', 'crisp', 'sharpen', 'anime', 'smooth']);
+const IMPLEMENTED_MODES = new Set<UpscalerMode>([
+  'auto',
+  'crisp',
+  'sharpen',
+  'anime',
+  'smooth',
+  'edge',
+  'night-vision',
+  'predator',
+]);
 
 const getRequiredElement = (selector: string): HTMLElement => {
   const element = document.querySelector<HTMLElement>(selector);
@@ -75,10 +90,12 @@ const updateModeControls = (): void => {
   const isCrispLike = selectedMode === 'auto' || selectedMode === 'crisp';
   const isSmooth = selectedMode === 'smooth';
   const isAnime = selectedMode === 'anime';
+  const isFunFilter =
+    selectedMode === 'edge' || selectedMode === 'night-vision' || selectedMode === 'predator';
 
   modeNote.textContent = MODE_NOTES[selectedMode];
   scaleField.hidden = isSharpen;
-  sharpnessField.hidden = isSmooth || isAnime;
+  sharpnessField.hidden = isSmooth || isAnime || isFunFilter;
   sharpnessLabel.textContent = isSharpen ? 'CAS sharpness' : 'FSR sharpness';
   sharpnessValue.value = sharpness.toFixed(2);
   sharpnessValue.textContent = sharpness.toFixed(2);
@@ -93,7 +110,9 @@ const updateModeControls = (): void => {
         ? 'Crisp uses WebGPU first and falls back to WebGL2.'
         : isAnime
           ? 'Anime requires WebGPU and uses the selected Anime4K sub-mode.'
-          : 'Smooth requires WebGPU.'
+          : isFunFilter
+            ? 'Experimental filter rendered with WebGL2.'
+            : 'Smooth requires WebGPU.'
     : 'This mode is visible for roadmap clarity and will unlock when its shader port lands.';
 };
 

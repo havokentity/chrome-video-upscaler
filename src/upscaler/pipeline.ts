@@ -2,6 +2,7 @@ import type { UpscalerMode, UpscalerSettings } from '../common/modes';
 import { classifyVideoFrame } from './auto/classifier';
 import { WebGpuAnimePipeline } from './modes/anime';
 import { createWebGL2CrispPipeline, WebGpuCrispPipeline } from './modes/crisp';
+import { createWebGL2FunPipeline, type FunFilterMode } from './modes/fun';
 import { createWebGpuNeuralLitePipeline } from './modes/neural-lite';
 import { createWebGpuNeuralProPipeline } from './modes/neural-pro';
 import { createWebGL2SharpenPipeline, WebGpuSharpenPipeline } from './modes/sharpen';
@@ -42,10 +43,22 @@ export class DisabledPipeline implements FramePipeline {
   }
 }
 
-type ImplementedMode = Extract<UpscalerMode, 'crisp' | 'sharpen' | 'anime' | 'smooth'>;
+type ImplementedMode = Extract<
+  UpscalerMode,
+  'crisp' | 'sharpen' | 'anime' | 'smooth' | FunFilterMode
+>;
 
 const isImplementedMode = (mode: UpscalerMode): mode is ImplementedMode =>
-  mode === 'crisp' || mode === 'sharpen' || mode === 'anime' || mode === 'smooth';
+  mode === 'crisp' ||
+  mode === 'sharpen' ||
+  mode === 'anime' ||
+  mode === 'smooth' ||
+  mode === 'edge' ||
+  mode === 'night-vision' ||
+  mode === 'predator';
+
+const isFunFilterMode = (mode: UpscalerMode): mode is FunFilterMode =>
+  mode === 'edge' || mode === 'night-vision' || mode === 'predator';
 
 const getErrorMessage = (error: unknown, fallback: string): string =>
   error instanceof Error ? error.message : fallback;
@@ -84,6 +97,18 @@ export const createPipeline = async (
       variant: settings.ravuVariant,
       video,
     });
+  }
+
+  if (isFunFilterMode(mode)) {
+    try {
+      return createWebGL2FunPipeline(canvas, video, {
+        mode,
+        scale: settings.scale,
+      });
+    } catch (error) {
+      const reason = getErrorMessage(error, 'Unknown WebGL2 filter error.');
+      return new DisabledPipeline(reason, mode);
+    }
   }
 
   if (mode === 'crisp') {

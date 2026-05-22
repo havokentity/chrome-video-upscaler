@@ -4,6 +4,9 @@ export const UPSCALER_MODES = [
   'sharpen',
   'anime',
   'smooth',
+  'edge',
+  'night-vision',
+  'predator',
   'neural-lite',
   'neural-pro',
 ] as const;

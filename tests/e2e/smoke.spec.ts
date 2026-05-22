@@ -265,6 +265,52 @@ test('Crisp mode uses the WebGL2 1.5x upscaler on a local MP4 video', async ({
   }
 });
 
+test('enabled setting rebuilds the active overlay without a page refresh', async ({
+  browserName,
+}, testInfo) => {
+  test.skip(browserName !== 'chromium', 'Chrome extensions can only be loaded in Chromium.');
+
+  expect(
+    existsSync(path.join(extensionPath, 'manifest.json')),
+    'Run `pnpm build` before `pnpm test:e2e`; this test loads the unpacked extension from dist.',
+  ).toBe(true);
+
+  const server = await startStaticServer(fixturesPath);
+  let context: BrowserContext | undefined;
+
+  try {
+    context = await createExtensionContext(testInfo.workerIndex + 175);
+    await writeExtensionSettings(context, {
+      ...DEFAULT_SETTINGS,
+      forceWebGL2: true,
+      mode: 'crisp',
+    });
+
+    const page = context.pages()[0] ?? (await context.newPage());
+    await page.goto(server.origin, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.mac-video-upscaler-overlay')).toHaveCount(1, { timeout: 10_000 });
+    await page.keyboard.press('Control+Shift+U');
+    await expect(page.locator('.mac-video-upscaler-hud')).toContainText('webgl2 crisp');
+    await expect(page.locator('#sample-video')).toHaveCSS('opacity', '0', { timeout: 10_000 });
+
+    await writeExtensionSettings(context, {
+      ...DEFAULT_SETTINGS,
+      enabled: false,
+      forceWebGL2: true,
+      mode: 'crisp',
+    });
+
+    await expect(page.locator('.mac-video-upscaler-hud')).toContainText('disabled', {
+      timeout: 10_000,
+    });
+    await expect(page.locator('.mac-video-upscaler-hud')).toContainText('Extension disabled');
+    await expect(page.locator('#sample-video')).toHaveCSS('opacity', '1', { timeout: 10_000 });
+  } finally {
+    await closeContext(context);
+    await server.close();
+  }
+});
+
 test('site block list disables the overlay pipeline without hiding the video', async ({
   browserName,
 }, testInfo) => {
@@ -316,6 +362,9 @@ const routedModeCases: Array<{
   { mode: 'sharpen', expectedHudText: 'sharpen' },
   { mode: 'anime', expectedHudText: 'anime', settings: { animeSubMode: 'mode-a' } },
   { mode: 'smooth', expectedHudText: 'smooth' },
+  { mode: 'edge', expectedHudText: 'edge' },
+  { mode: 'night-vision', expectedHudText: 'night-vision' },
+  { mode: 'predator', expectedHudText: 'predator' },
   { mode: 'neural-lite', expectedHudText: 'neural-lite' },
   { mode: 'neural-pro', expectedHudText: 'neural-pro' },
 ];
