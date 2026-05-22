@@ -19,7 +19,8 @@ swift run -c release mac-video-upscaler-native \
   --output /path/to/upscaled.mp4 \
   --mode crisp \
   --scale 2 \
-  --sharpness 1
+  --sharpness 1 \
+  --open-compare
 ```
 
 Modes:
@@ -32,6 +33,17 @@ The native bench is video-only for now. Audio passthrough can come later once th
 
 ## Side-By-Side Compare
 
-Open `native/compare.html` in a browser, choose the original file on the left and the native output on the right, then play/scrub them together.
+After each run the CLI writes:
+
+- `native/last-run.json`
+- `native/last-compare.html`
+
+Use `--open-compare` to open `last-compare.html` automatically.
+
+You can also open `native/compare.html` in a browser and choose files manually, or pass file URLs as query params:
+
+```text
+native/compare.html?left=file:///path/to/original.mp4&right=file:///path/to/upscaled.mp4
+```
 
 You can also drop two video files onto the page: first file becomes Original, second file becomes Native Upscaled.

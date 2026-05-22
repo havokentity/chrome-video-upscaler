@@ -25,6 +25,7 @@ struct NativeUpscaleOptions {
   var scale: Double = 2.0
   var sharpness: Double = 0.75
   var bitrate: Int?
+  var openCompare = false
 }
 
 enum NativeUpscaleError: Error, CustomStringConvertible {
@@ -87,6 +88,7 @@ struct MacVideoUpscalerNative {
     --scale 1.0...4.0             Output scale. Default: 2.0.
     --sharpness 0.0...2.0         Enhancement strength. Default: 0.75.
     --bitrate bits                Optional H.264 average bitrate.
+    --open-compare                Open the generated side-by-side compare page.
 
   Notes:
     This native bench is video-only for now. It intentionally avoids browser,
@@ -138,6 +140,8 @@ func parseArguments(_ arguments: [String]) throws -> NativeUpscaleOptions {
         throw NativeUpscaleError.invalidArguments("--bitrate must be a positive integer.")
       }
       options.bitrate = bitrate
+    case "--open-compare":
+      options.openCompare = true
     case "--help", "-h":
       throw NativeUpscaleError.invalidArguments("")
     default:
@@ -315,7 +319,185 @@ func upscaleVideo(options: NativeUpscaleOptions) async throws {
     throw NativeUpscaleError.writerFailed(writer.error?.localizedDescription ?? "unknown error")
   }
 
+  let lastCompareURL = try writeLastRunComparePage(inputURL: inputURL, outputURL: outputURL, options: options)
+  if options.openCompare {
+    try openInDefaultBrowser(lastCompareURL)
+  }
   print("Done: \(frameCount) frames")
+}
+
+func writeLastRunComparePage(
+  inputURL: URL,
+  outputURL: URL,
+  options: NativeUpscaleOptions
+) throws -> URL {
+  let compareDirectory = findCompareDirectory()
+  try FileManager.default.createDirectory(at: compareDirectory, withIntermediateDirectories: true)
+
+  let lastRunURL = compareDirectory.appendingPathComponent("last-run.json")
+  let lastCompareURL = compareDirectory.appendingPathComponent("last-compare.html")
+  let createdAt = ISO8601DateFormatter().string(from: Date())
+  let json = """
+  {
+    "createdAt": "\(escapeJSON(createdAt))",
+    "input": "\(escapeJSON(inputURL.path))",
+    "output": "\(escapeJSON(outputURL.path))",
+    "mode": "\(escapeJSON(options.mode.rawValue))",
+    "scale": \(String(format: "%.3f", options.scale)),
+    "sharpness": \(String(format: "%.3f", options.sharpness))
+  }
+  """
+  try json.write(to: lastRunURL, atomically: true, encoding: .utf8)
+
+  let html = """
+  <!doctype html>
+  <html lang="en">
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>Last Native Upscale Compare</title>
+      <style>
+        :root { color-scheme: dark; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #070b10; color: #f8fafc; }
+        body { margin: 0; min-height: 100vh; display: grid; grid-template-rows: auto 1fr auto; background: #070b10; }
+        header, footer { padding: 12px 16px; border-color: rgb(255 255 255 / 12%); }
+        header { border-bottom: 1px solid rgb(255 255 255 / 12%); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center; }
+        h1 { margin: 0; font-size: 16px; }
+        main { min-height: 0; display: grid; grid-template-columns: 1fr 1fr; }
+        section { min-width: 0; display: grid; grid-template-rows: auto 1fr; border-right: 1px solid rgb(255 255 255 / 12%); }
+        section:last-child { border-right: 0; }
+        .title { padding: 10px 12px; background: rgb(255 255 255 / 5%); color: #cbd5e1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        video { width: 100%; height: 100%; min-height: 0; object-fit: contain; background: #000; }
+        footer { border-top: 1px solid rgb(255 255 255 / 12%); display: grid; grid-template-columns: auto auto auto 1fr auto; gap: 10px; align-items: center; }
+        button, select { min-height: 34px; border: 1px solid rgb(255 255 255 / 14%); border-radius: 6px; background: #172033; color: #f8fafc; font: inherit; }
+        button { min-width: 38px; cursor: pointer; }
+        input[type="range"] { width: 100%; }
+        .time { min-width: 112px; text-align: right; font-variant-numeric: tabular-nums; color: #cbd5e1; }
+        @media (max-width: 820px) { main { grid-template-columns: 1fr; } section { min-height: 40vh; border-right: 0; border-bottom: 1px solid rgb(255 255 255 / 12%); } footer { grid-template-columns: 1fr; } .time { text-align: left; } }
+      </style>
+    </head>
+    <body>
+      <header>
+        <h1>Last Native Upscale Compare</h1>
+        <div>\(escapeHTML(options.mode.rawValue)) · \(String(format: "%.2f", options.scale))x · sharpness \(String(format: "%.2f", options.sharpness))</div>
+      </header>
+      <main>
+        <section>
+          <div class="title">Original: \(escapeHTML(inputURL.lastPathComponent))</div>
+          <video id="left" src="\(escapeHTMLAttribute(inputURL.absoluteString))" playsinline muted></video>
+        </section>
+        <section>
+          <div class="title">Upscaled: \(escapeHTML(outputURL.lastPathComponent))</div>
+          <video id="right" src="\(escapeHTMLAttribute(outputURL.absoluteString))" playsinline muted></video>
+        </section>
+      </main>
+      <footer>
+        <button id="play" type="button">▶</button>
+        <button id="back" type="button">‹</button>
+        <button id="forward" type="button">›</button>
+        <input id="scrub" type="range" min="0" max="1" step="0.001" value="0" />
+        <div id="time" class="time">0.00 / 0.00</div>
+      </footer>
+      <script>
+        const left = document.querySelector('#left');
+        const right = document.querySelector('#right');
+        const play = document.querySelector('#play');
+        const back = document.querySelector('#back');
+        const forward = document.querySelector('#forward');
+        const scrub = document.querySelector('#scrub');
+        const time = document.querySelector('#time');
+        let syncing = false;
+        const syncTime = (source, target) => {
+          if (syncing || Math.abs(target.currentTime - source.currentTime) < 0.04) return;
+          syncing = true;
+          target.currentTime = source.currentTime;
+          syncing = false;
+        };
+        const update = () => {
+          const duration = Math.max(left.duration || 0, right.duration || 0);
+          const current = Math.max(left.currentTime || 0, right.currentTime || 0);
+          scrub.max = String(Math.max(0.001, duration));
+          scrub.value = String(Math.min(duration, current));
+          time.textContent = `${current.toFixed(2)} / ${duration.toFixed(2)}`;
+          play.textContent = left.paused && right.paused ? '▶' : 'Ⅱ';
+          requestAnimationFrame(update);
+        };
+        left.addEventListener('timeupdate', () => syncTime(left, right));
+        right.addEventListener('timeupdate', () => syncTime(right, left));
+        play.addEventListener('click', async () => {
+          if (left.paused && right.paused) {
+            const next = Math.max(left.currentTime, right.currentTime);
+            left.currentTime = next;
+            right.currentTime = next;
+            await Promise.allSettled([left.play(), right.play()]);
+          } else {
+            left.pause();
+            right.pause();
+          }
+        });
+        back.addEventListener('click', () => {
+          const next = Math.max(0, Math.max(left.currentTime, right.currentTime) - 1 / 30);
+          left.currentTime = next;
+          right.currentTime = next;
+        });
+        forward.addEventListener('click', () => {
+          const next = Math.max(left.currentTime, right.currentTime) + 1 / 30;
+          left.currentTime = next;
+          right.currentTime = next;
+        });
+        scrub.addEventListener('input', () => {
+          left.currentTime = Number(scrub.value);
+          right.currentTime = Number(scrub.value);
+        });
+        update();
+      </script>
+    </body>
+  </html>
+  """
+  try html.write(to: lastCompareURL, atomically: true, encoding: .utf8)
+
+  print("Compare: \(lastCompareURL.path)")
+  return lastCompareURL
+}
+
+func openInDefaultBrowser(_ url: URL) throws {
+  let process = Process()
+  process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+  process.arguments = [url.path]
+  try process.run()
+}
+
+func findCompareDirectory() -> URL {
+  let current = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+  let nativeFromRoot = current.appendingPathComponent("native/compare.html")
+  if FileManager.default.fileExists(atPath: nativeFromRoot.path) {
+    return current.appendingPathComponent("native")
+  }
+
+  let compareInCurrent = current.appendingPathComponent("compare.html")
+  if FileManager.default.fileExists(atPath: compareInCurrent.path) {
+    return current
+  }
+
+  return current
+}
+
+func escapeJSON(_ value: String) -> String {
+  value
+    .replacingOccurrences(of: "\\", with: "\\\\")
+    .replacingOccurrences(of: "\"", with: "\\\"")
+    .replacingOccurrences(of: "\n", with: "\\n")
+}
+
+func escapeHTML(_ value: String) -> String {
+  value
+    .replacingOccurrences(of: "&", with: "&amp;")
+    .replacingOccurrences(of: "<", with: "&lt;")
+    .replacingOccurrences(of: ">", with: "&gt;")
+}
+
+func escapeHTMLAttribute(_ value: String) -> String {
+  escapeHTML(value)
+    .replacingOccurrences(of: "\"", with: "&quot;")
 }
 
 func finishWriting(_ writer: AVAssetWriter) async throws {

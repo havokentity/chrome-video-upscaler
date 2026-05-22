@@ -243,6 +243,17 @@
         meta.textContent = file.name;
       };
 
+      const setURL = (video, meta, value) => {
+        if (!value) return;
+        video.src = value;
+        video.load();
+        try {
+          meta.textContent = decodeURIComponent(new URL(value).pathname.split('/').pop() || value);
+        } catch {
+          meta.textContent = value;
+        }
+      };
+
       const syncTime = (source, target) => {
         if (syncing || !Number.isFinite(source.currentTime)) return;
         if (Math.abs(target.currentTime - source.currentTime) < 0.04) return;
@@ -315,6 +326,10 @@
         setFile(left, leftMeta, files[0]);
         setFile(right, rightMeta, files[1]);
       });
+
+      const params = new URLSearchParams(location.search);
+      setURL(left, leftMeta, params.get('left'));
+      setURL(right, rightMeta, params.get('right'));
 
       updateHud();
     </script>

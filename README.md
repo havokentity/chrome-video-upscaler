@@ -58,10 +58,11 @@ swift run -c release mac-video-upscaler-native \
   --output /path/to/upscaled.mp4 \
   --mode crisp \
   --scale 2 \
-  --sharpness 1
+  --sharpness 1 \
+  --open-compare
 ```
 
-Then open `native/compare.html` in a browser and choose the original plus output videos to play them side by side with synced play, pause, seek, frame-step-ish buttons, and playback rate.
+The CLI writes `native/last-run.json` plus `native/last-compare.html`, and `--open-compare` opens the side-by-side page automatically. You can also open `native/compare.html` manually and choose files, or pass `left`/`right` file URLs as query params.
 
 The native bench currently uses AVFoundation plus a Metal-backed Core Image pipeline. It is video-only for now, by design, so visual quality can be judged without audio muxing or browser presentation noise.
 

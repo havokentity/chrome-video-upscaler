@@ -1,6 +1,8 @@
 node_modules/
 dist/
 native/.build/
+native/last-compare.html
+native/last-run.json
 coverage/
 playwright-report/
 test-results/
