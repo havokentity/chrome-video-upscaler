@@ -16,9 +16,10 @@ describe('options UI model', () => {
     expect(MODE_LABELS.crt).toContain('CRT');
     expect(MODE_LABELS.invert).toContain('Inverted');
     expect(MODE_LABELS.cartoon).toContain('Cartoon');
+    expect(MODE_LABELS['neural-pro']).toContain('RAVU-Lite');
   });
 
-  it('keeps future modes visible but disabled', () => {
+  it('keeps routed modes enabled and future-only pieces clearly labeled', () => {
     expect(isImplementedMode('none')).toBe(true);
     expect(isImplementedMode('anime')).toBe(true);
     expect(isImplementedMode('predator')).toBe(true);
@@ -26,8 +27,7 @@ describe('options UI model', () => {
     expect(isImplementedMode('invert')).toBe(true);
     expect(isImplementedMode('cartoon')).toBe(true);
     expect(isImplementedMode('neural-lite')).toBe(true);
-    expect(isImplementedMode('neural-pro')).toBe(false);
-    expect(MODE_LABELS['neural-pro']).toContain('coming soon');
+    expect(isImplementedMode('neural-pro')).toBe(true);
   });
 
   it('shows mode-specific controls for implemented modes', () => {
@@ -67,14 +67,18 @@ describe('options UI model', () => {
     expect(getModeControlState('neural-lite')).toMatchObject({
       implemented: true,
       scaleVisible: true,
+      sharpnessVisible: false,
       supportNote: 'Neural-Lite preview uses WebGL2 first; ArtCNN weight port is still pending.',
     });
   });
 
-  it('surfaces disabled future configuration groups', () => {
+  it('surfaces Neural-Pro RAVU configuration', () => {
     expect(getModeControlState('neural-pro')).toMatchObject({
-      implemented: false,
+      implemented: true,
       ravuVisible: true,
+      scaleVisible: true,
+      sharpnessVisible: false,
+      supportNote: 'Neural-Pro runs the imported LGPL RAVU-Lite WebGL2 port; RAVU-Zoom is pending.',
     });
   });
 });

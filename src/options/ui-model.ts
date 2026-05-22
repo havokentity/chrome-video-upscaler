@@ -14,7 +14,7 @@ export const MODE_LABELS: Record<UpscalerMode, string> = {
   invert: 'Inverted Colors',
   cartoon: 'Cartoon Rotoscope',
   'neural-lite': 'Neural-Lite Preview',
-  'neural-pro': 'Neural-Pro (coming soon)',
+  'neural-pro': 'Neural-Pro (RAVU-Lite)',
 };
 
 export const MODE_DESCRIPTIONS: Record<UpscalerMode, string> = {
@@ -31,7 +31,7 @@ export const MODE_DESCRIPTIONS: Record<UpscalerMode, string> = {
   invert: 'Experimental inverted color WebGL2 filter.',
   cartoon: 'Experimental toon-shader rotoscope WebGL2 filter.',
   'neural-lite': 'Small residual enhancement preview; ArtCNN weights remain the target port.',
-  'neural-pro': 'RAVU is reserved for the LGPL neural-pro milestone.',
+  'neural-pro': 'LGPL RAVU-Lite-AR r3 WebGL2 port. RAVU-Zoom remains pending.',
 };
 
 const IMPLEMENTED_MODES = new Set<UpscalerMode>([
@@ -48,6 +48,7 @@ const IMPLEMENTED_MODES = new Set<UpscalerMode>([
   'invert',
   'cartoon',
   'neural-lite',
+  'neural-pro',
 ]);
 
 export interface ModeControlState {
@@ -70,6 +71,7 @@ export const getModeControlState = (mode: UpscalerMode): ModeControlState => {
   const isSmooth = mode === 'smooth';
   const isAnime = mode === 'anime';
   const isNeuralLite = mode === 'neural-lite';
+  const isNeuralPro = mode === 'neural-pro';
   const isFunFilter =
     mode === 'edge' ||
     mode === 'night-vision' ||
@@ -85,7 +87,7 @@ export const getModeControlState = (mode: UpscalerMode): ModeControlState => {
     ravuVisible: mode === 'neural-pro',
     scaleVisible: !isNone && !isSharpen,
     sharpnessLabel: isSharpen ? 'CAS sharpness' : 'FSR sharpness',
-    sharpnessVisible: !isNone && !isSmooth && !isAnime && !isFunFilter,
+    sharpnessVisible: !isNone && !isSmooth && !isAnime && !isNeuralLite && !isNeuralPro && !isFunFilter,
     supportNote: implemented
       ? isNone
         ? 'Native video passthrough; no overlay rendering is applied.'
@@ -95,6 +97,8 @@ export const getModeControlState = (mode: UpscalerMode): ModeControlState => {
           ? 'Anime uses the upstream Anime4K Fast CNN chain on WebGL2 first.'
           : isNeuralLite
             ? 'Neural-Lite preview uses WebGL2 first; ArtCNN weight port is still pending.'
+          : isNeuralPro
+            ? 'Neural-Pro runs the imported LGPL RAVU-Lite WebGL2 port; RAVU-Zoom is pending.'
           : isSmooth
           ? 'Smooth is WebGPU-only.'
           : isFunFilter

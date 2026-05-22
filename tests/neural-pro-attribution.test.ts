@@ -2,14 +2,16 @@ import { describe, expect, it } from 'vitest';
 
 import {
   getRavuPlannedSource,
+  getRavuLiteHookSource,
   RAVU_ATTRIBUTION_TODO,
+  RAVU_LITE_LUT_VALUE_COUNT,
   RAVU_PLANNED_SOURCES,
   RAVU_UPSTREAM,
   resolveNeuralProVariant,
 } from '../src/upscaler/modes/neural-pro';
 
-describe('Neural-Pro RAVU attribution skeleton', () => {
-  it('pins upstream RAVU metadata before shader import', () => {
+describe('Neural-Pro RAVU attribution and source import', () => {
+  it('pins upstream RAVU metadata for the imported port', () => {
     expect(RAVU_UPSTREAM).toEqual({
       repository: 'https://github.com/bjin/mpv-prescalers',
       commit: 'b3f0a59d68f33b7162051ea5970a5169558f0ea2',
@@ -19,7 +21,7 @@ describe('Neural-Pro RAVU attribution skeleton', () => {
     });
   });
 
-  it('tracks the intended RAVU-Zoom and RAVU-Lite files without importing shader code', () => {
+  it('tracks RAVU-Zoom as pending and RAVU-Lite as imported', () => {
     expect(RAVU_PLANNED_SOURCES).toHaveLength(2);
     expect(RAVU_PLANNED_SOURCES.map((source) => source.upstreamFile)).toEqual([
       'ravu-zoom-ar-r3.hook',
@@ -31,7 +33,7 @@ describe('Neural-Pro RAVU attribution skeleton', () => {
     ]);
     expect(RAVU_PLANNED_SOURCES.map((source) => source.importStatus)).toEqual([
       'todo-preserve-header-before-import',
-      'todo-preserve-header-before-import',
+      'imported-with-lgpl-header',
     ]);
   });
 
@@ -45,7 +47,21 @@ describe('Neural-Pro RAVU attribution skeleton', () => {
   it('keeps an explicit attribution reminder for the enabling slice', () => {
     expect(getRavuPlannedSource('zoom').sourceUrl).toContain('/ravu-zoom-ar-r3.hook');
     expect(getRavuPlannedSource('lite').sourceUrl).toContain('/ravu-lite-ar-r3.hook');
-    expect(RAVU_ATTRIBUTION_TODO).toContain('original LGPL headers');
+    expect(getRavuPlannedSource('lite').intendedLocalFile).toBe(
+      'src/upscaler/modes/neural-pro/ravu-lite-ar-r3.hook',
+    );
+    expect(RAVU_ATTRIBUTION_TODO).toContain('original LGPL header');
     expect(RAVU_ATTRIBUTION_TODO).toContain('NOTICE');
+  });
+
+  it('parses the imported RAVU-Lite shader passes and LUT payload', () => {
+    const source = getRavuLiteHookSource();
+    expect(source.source).toContain('GNU Lesser General Public License');
+    expect(source.step1.description).toBe('RAVU-Lite-AR (step1, r3)');
+    expect(source.step2.description).toBe('RAVU-Lite-AR (step2, r3)');
+    expect(source.step1.code).toContain('texture(ravu_lite_lut3');
+    expect(source.step2.code).toContain('ravu_lite_int_texOff');
+    expect(source.lutValues).toHaveLength(RAVU_LITE_LUT_VALUE_COUNT);
+    expect(Number.isFinite(source.lutValues[0])).toBe(true);
   });
 });

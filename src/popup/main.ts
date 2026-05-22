@@ -22,7 +22,7 @@ const MODE_LABELS: Record<UpscalerMode, string> = {
   invert: 'Inverted Colors',
   cartoon: 'Cartoon Rotoscope',
   'neural-lite': 'Neural-Lite Preview',
-  'neural-pro': 'Neural-Pro (coming soon)',
+  'neural-pro': 'Neural-Pro (RAVU-Lite)',
 };
 
 const MODE_NOTES: Record<UpscalerMode, string> = {
@@ -39,7 +39,7 @@ const MODE_NOTES: Record<UpscalerMode, string> = {
   invert: 'Experimental inverted color filter.',
   cartoon: 'Experimental toon-shader rotoscope look with posterized colors and inked edges.',
   'neural-lite': 'Small residual enhancement preview; ArtCNN weights remain the target port.',
-  'neural-pro': 'RAVU integration is reserved for the LGPL shader milestone.',
+  'neural-pro': 'LGPL RAVU-Lite-AR r3 port. RAVU-Zoom remains pending.',
 };
 
 const IMPLEMENTED_MODES = new Set<UpscalerMode>([
@@ -56,6 +56,7 @@ const IMPLEMENTED_MODES = new Set<UpscalerMode>([
   'invert',
   'cartoon',
   'neural-lite',
+  'neural-pro',
 ]);
 
 const getRequiredElement = (selector: string): HTMLElement => {
@@ -123,6 +124,7 @@ const updateModeControls = (): void => {
   const isSmooth = selectedMode === 'smooth';
   const isAnime = selectedMode === 'anime';
   const isNeuralLite = selectedMode === 'neural-lite';
+  const isNeuralPro = selectedMode === 'neural-pro';
   const isNone = selectedMode === 'none';
   const isFunFilter =
     selectedMode === 'edge' ||
@@ -136,14 +138,14 @@ const updateModeControls = (): void => {
   scaleField.hidden = isNone || isSharpen;
   frameGenerationField.hidden = isNone;
   frameGenerationTargetField.hidden = !frameGenerationEnabled.checked;
-  sharpnessField.hidden = isNone || isSmooth || isAnime || isFunFilter;
+  sharpnessField.hidden = isNone || isSmooth || isAnime || isNeuralLite || isNeuralPro || isFunFilter;
   sharpnessLabel.textContent = isSharpen ? 'CAS sharpness' : 'FSR sharpness';
   sharpnessValue.value = sharpness.toFixed(2);
   sharpnessValue.textContent = sharpness.toFixed(2);
   animeField.hidden = selectedMode !== 'anime';
   animeField.disabled = false;
   ravuField.hidden = selectedMode !== 'neural-pro';
-  ravuField.disabled = true;
+  ravuField.disabled = false;
   supportNote.textContent = IMPLEMENTED_MODES.has(selectedMode)
     ? isSharpen
       ? 'Scale is fixed at 1.0x for Sharpen.'
@@ -155,6 +157,8 @@ const updateModeControls = (): void => {
           ? 'Anime uses the visually verified WebGL2 path first, with WebGPU fallback.'
         : isNeuralLite
           ? 'Neural-Lite preview uses WebGL2 first; ArtCNN weight port is still pending.'
+        : isNeuralPro
+          ? 'Neural-Pro runs the imported LGPL RAVU-Lite WebGL2 port; RAVU-Zoom is pending.'
         : isFunFilter
             ? 'Experimental filter rendered with WebGL2.'
             : 'Smooth requires WebGPU.'

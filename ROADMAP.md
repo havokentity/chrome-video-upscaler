@@ -11,13 +11,14 @@
 - [x] Add Anime4K-inspired Mode A and A+A milestone path.
 - [x] Verify Neural-Lite / ArtCNN license and add disabled skeleton.
 - [x] Add opt-in Neural-Pro / RAVU attribution skeleton.
+- [x] Import and run RAVU-Lite for the first Neural-Pro path.
 - [x] Add DRM/CORS frame access probe helpers.
 - [x] Add HUD formatting, rendered-FPS sampling, and routed-mode smoke coverage.
 - [x] Add per-site allow/block/rule storage and content-script resolution.
 - [x] Add local benchmark smoke harness with Markdown/JSON output.
 - [x] Add experimental 60/120 fps overlay frame-pacing control.
 - [ ] Port full Neural-Lite / ArtCNN shader.
-- [ ] Port Neural-Pro / RAVU shaders with LGPL headers and NOTICE entries.
+- [ ] Port RAVU-Zoom and WebGPU Neural-Pro with LGPL headers and NOTICE entries.
 - [ ] Add timestamp-query GPU timing, screenshots, measured Apple Silicon benchmarks, and release notes.
 
 ## Explicit Non-Goals

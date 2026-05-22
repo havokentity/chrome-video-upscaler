@@ -87,7 +87,7 @@ const updateModeControls = (): void => {
   animeField.hidden = !controlState.animeVisible;
   animeField.disabled = true;
   ravuField.hidden = !controlState.ravuVisible;
-  ravuField.disabled = true;
+  ravuField.disabled = false;
   supportNote.textContent = controlState.supportNote;
 };
 

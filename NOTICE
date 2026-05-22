@@ -34,5 +34,9 @@ Planned attributions before exact shader integration:
   copied ArtCNN weights; the real port must preserve upstream shader headers
   before Neural-Lite is enabled.
 - RAVU shader variants from bjin/mpv-prescalers, LGPL-3.0-or-later.
-  Planned sources pinned at commit b3f0a59d68f33b7162051ea5970a5169558f0ea2:
-  ravu-zoom-ar-r3.hook and ravu-lite-ar-r3.hook.
+  Imported from https://github.com/bjin/mpv-prescalers at commit
+  b3f0a59d68f33b7162051ea5970a5169558f0ea2:
+  src/upscaler/modes/neural-pro/ravu-lite-ar-r3.hook
+  The original LGPL header is preserved in the imported source file.
+  RAVU-Zoom remains planned from the same upstream commit:
+  ravu-zoom-ar-r3.hook.

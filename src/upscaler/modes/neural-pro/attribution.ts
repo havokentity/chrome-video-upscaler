@@ -15,7 +15,7 @@ export interface RavuPlannedSource {
   readonly sourceUrl: string;
   readonly intendedLocalFile: string;
   readonly license: typeof RAVU_UPSTREAM.license;
-  readonly importStatus: 'todo-preserve-header-before-import';
+  readonly importStatus: 'todo-preserve-header-before-import' | 'imported-with-lgpl-header';
   readonly notes: string;
 }
 
@@ -28,7 +28,7 @@ export const RAVU_PLANNED_SOURCES = [
     mode: 'neural-pro',
     upstreamFile: 'ravu-zoom-ar-r3.hook',
     sourceUrl: rawUrl('ravu-zoom-ar-r3.hook'),
-    intendedLocalFile: 'src/upscaler/modes/neural-pro/ravu-zoom-ar-r3.wgsl',
+    intendedLocalFile: 'src/upscaler/modes/neural-pro/ravu-zoom-ar-r3.hook',
     license: RAVU_UPSTREAM.license,
     importStatus: 'todo-preserve-header-before-import',
     notes:
@@ -39,16 +39,16 @@ export const RAVU_PLANNED_SOURCES = [
     mode: 'neural-pro',
     upstreamFile: 'ravu-lite-ar-r3.hook',
     sourceUrl: rawUrl('ravu-lite-ar-r3.hook'),
-    intendedLocalFile: 'src/upscaler/modes/neural-pro/ravu-lite-ar-r3.wgsl',
+    intendedLocalFile: 'src/upscaler/modes/neural-pro/ravu-lite-ar-r3.hook',
     license: RAVU_UPSTREAM.license,
-    importStatus: 'todo-preserve-header-before-import',
+    importStatus: 'imported-with-lgpl-header',
     notes:
-      'RAVU-Lite-AR r3 is the intended 1.5x/1.7x Neural-Pro source. Port only with the LGPL header and NOTICE attribution preserved.',
+      'RAVU-Lite-AR r3 is imported with the original LGPL header preserved and is used by the first Neural-Pro WebGL2 port.',
   },
 ] as const satisfies readonly RavuPlannedSource[];
 
 export const RAVU_ATTRIBUTION_TODO =
-  'Before enabling Neural-Pro, import the selected RAVU shader ports with original LGPL headers intact, add per-file NOTICE entries, and keep the full source available in this folder.' as const;
+  'RAVU-Lite is imported with its original LGPL header; RAVU-Zoom remains pending and must be imported with the same header and NOTICE treatment before enabling.' as const;
 
 export const getRavuPlannedSource = (variant: RavuPlannedVariant): RavuPlannedSource =>
   RAVU_PLANNED_SOURCES.find((source) => source.variant === variant) ?? RAVU_PLANNED_SOURCES[0];

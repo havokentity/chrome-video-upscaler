@@ -7,6 +7,24 @@ export {
   type RavuPlannedVariant,
 } from './attribution';
 export {
+  createWebGL2NeuralProPipeline,
+  WebGL2NeuralProPipeline,
+  WebGL2NeuralProPipelineError,
+  type WebGL2NeuralProPipelineOptions,
+  type WebGL2NeuralProPipelineStatus,
+} from './webgl2-neural-pro-pipeline';
+export {
+  getRavuLiteHookSource,
+  parseRavuLiteHookSource,
+  RAVU_LITE_LUT_CHANNELS,
+  RAVU_LITE_LUT_HEIGHT,
+  RAVU_LITE_LUT_VALUE_COUNT,
+  RAVU_LITE_LUT_WIDTH,
+  RAVU_LITE_UPSTREAM_FILE,
+  type RavuLiteHookPass,
+  type RavuLiteHookSource,
+} from './ravu-lite-source';
+export {
   createWebGpuNeuralProPipeline,
   resolveNeuralProVariant,
   WebGpuNeuralProPipeline,
