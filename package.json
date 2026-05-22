@@ -1,0 +1,44 @@
+{
+  "name": "mac-video-upscaler",
+  "version": "0.0.0",
+  "description": "Metal-tuned GPU video upscaling Chrome extension for macOS.",
+  "type": "module",
+  "private": false,
+  "license": "MIT",
+  "author": "Rajesh Peter D'Monte",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/havokentity/mac-video-upscaler.git"
+  },
+  "bugs": {
+    "url": "https://github.com/havokentity/mac-video-upscaler/issues"
+  },
+  "homepage": "https://github.com/havokentity/mac-video-upscaler#readme",
+  "packageManager": "pnpm@11.2.2",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "validate:wgsl": "node scripts/validate-wgsl-metal.mjs",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm validate:wgsl && pnpm build"
+  },
+  "dependencies": {
+    "@crxjs/vite-plugin": "^2.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.57.0",
+    "@types/chrome": "^0.1.35",
+    "@types/node": "^24.10.1",
+    "eslint": "^9.39.1",
+    "globals": "^16.5.0",
+    "jsdom": "^27.2.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.48.0",
+    "vite": "^7.2.4",
+    "vitest": "^4.0.14"
+  }
+}

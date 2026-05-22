@@ -1,0 +1,13 @@
+Mac Video Upscaler
+Copyright (c) 2026 Rajesh Peter D'Monte
+License: MIT
+
+This scaffold does not yet bundle third-party shader source.
+
+Planned attributions before integration:
+
+- AMD FidelityFX Super Resolution 1.0 EASU + RCAS, MIT.
+- AMD Contrast Adaptive Sharpening, MIT.
+- Anime4K v4 from bloc97/Anime4K, MIT.
+- ArtCNN from Artoriuz/ArtCNN, MIT pending verification at import.
+- RAVU shader variants from the mpv-player shaders ecosystem, LGPL-3.0.

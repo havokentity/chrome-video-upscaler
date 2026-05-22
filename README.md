@@ -1,0 +1,56 @@
+# Mac Video Upscaler
+
+Metal-tuned GPU video upscaling for Chrome on macOS. The project targets Manifest V3, WebGPU through Dawn/Tint/Metal, and a WebGL2 fallback for the fast modes.
+
+This repository is being built in ordered milestones. The current scaffold is loadable after `pnpm build`; shader implementations and site verification land in later steps.
+
+## Install for Development
+
+```sh
+corepack enable pnpm
+pnpm install
+pnpm build
+```
+
+Then open `chrome://extensions`, enable Developer Mode, choose **Load unpacked**, and select `dist`.
+
+For popup/options HMR:
+
+```sh
+pnpm dev
+```
+
+## Modes Planned for v1
+
+| Mode | Backend | License | Notes |
+| --- | --- | --- | --- |
+| Auto | WebGPU/WebGL2 | MIT | Cheap first-frame classifier; Neural-Pro remains opt-in. |
+| Crisp | WebGPU + WebGL2 | MIT | FSR 1.0 EASU + RCAS. |
+| Sharpen | WebGPU + WebGL2 | MIT | CAS at 1.0x. |
+| Anime | WebGPU | MIT | Anime4K v4 Mode A and A+A. |
+| Smooth | WebGPU | Public-domain math | EWA Lanczos / Jinc-windowed Jinc. |
+| Neural-Lite | WebGPU | MIT, pending source verification | ArtCNN smallest practical variant first. |
+| Neural-Pro | WebGPU | LGPL-3.0 | RAVU-Zoom and RAVU-Lite with attribution. |
+
+## How It Works
+
+The content script finds visible `<video>` elements, mounts a pointer-transparent canvas over the video box, and hands frames to a reusable upscaler pipeline. WebGPU is preferred on macOS Chrome 121+; WebGL2 is retained as a fallback for Crisp and Sharpen. Compute pipelines use small coherent workgroups, half precision where it is visually safe, and texture/bind-group reuse to avoid per-frame allocation churn.
+
+MetalFX is native-only and is not reachable from WebGPU, so this extension ships shader upscalers instead of attempting to bridge private platform APIs.
+
+## Known Limits
+
+- DRM/EME video such as Netflix, Disney+, HBO Max, and Prime Video cannot be read from canvas and cannot be upscaled.
+- Cross-origin video without CORS support taints canvas uploads and must be disabled cleanly.
+- HTML5 video exposes no motion vectors or depth, so this cannot fully match temporal ML approaches like RTX Video Super Resolution.
+- Neural-Pro is expected to be heavy on base M1 systems at 1080p to 4K, especially at 60 fps.
+
+## Benchmarks
+
+Benchmarks are not available yet. The first measured table will be added after the WebGPU Crisp and texture-pool milestone on an Apple Silicon Mac, with chip model clearly listed.
+
+## Licensing
+
+Original extension code is MIT-licensed. Third-party MIT shader ports remain MIT with upstream headers preserved. LGPL shader components, including RAVU-derived files, live under `src/upscaler/modes/*/` with original notices intact, full license text in `LICENSES/`, and per-file attribution in `NOTICE`.
+
+Because this repository is public and ships source for the integrated shader components, users can inspect, modify, and rebuild the extension. The LGPL components are kept clearly separated and attributed.

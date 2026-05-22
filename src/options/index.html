@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mac Video Upscaler Options</title>
+  </head>
+  <body>
+    <main>
+      <h1>Mac Video Upscaler Options</h1>
+      <section>
+        <h2>Defaults</h2>
+        <p id="summary"></p>
+      </section>
+      <section>
+        <h2>Developer Panel</h2>
+        <label><input id="forceWebGL2" type="checkbox" /> Force WebGL2</label>
+        <label><input id="forceF32" type="checkbox" /> Force f32 shaders</label>
+        <label>
+          Workgroup size
+          <select id="workgroupSize">
+            <option value="8x8">8x8</option>
+            <option value="16x16">16x16</option>
+          </select>
+        </label>
+      </section>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
