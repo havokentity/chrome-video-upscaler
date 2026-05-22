@@ -1,6 +1,6 @@
 import { resolveSiteSettings } from '../common/site-rules';
 import { loadSettings, loadSiteRules } from '../common/storage';
-import { shouldBypassVideo } from '../common/site';
+import { detectSite, shouldBypassVideo } from '../common/site';
 import { classifyFrameAccessError } from '../content/frame-access-probe';
 import { createPipeline, type FramePipeline } from '../upscaler/pipeline';
 import { buildHudRows, sampleRenderedFps } from './hud';
@@ -24,6 +24,7 @@ export class VideoOverlay {
   private overlayHost: HTMLElement | undefined;
   private previousHostPosition: string | undefined;
   private readonly previousVideoOpacity: string;
+  private readonly previousVideoZIndex: string;
   private renderedFps: number | undefined;
   private renderedFrameTimestamps: readonly number[] = [];
   private renderedFrameCount = 0;
@@ -43,6 +44,7 @@ export class VideoOverlay {
     this.hud.className = HUD_CLASS;
     this.hud.hidden = true;
     this.previousVideoOpacity = video.style.opacity;
+    this.previousVideoZIndex = video.style.zIndex;
   }
 
   async mount(): Promise<boolean> {
@@ -53,6 +55,7 @@ export class VideoOverlay {
     this.mounted = true;
     this.attachOverlayHost();
     document.documentElement.append(this.hud);
+    this.pruneDuplicateYouTubeOverlays();
     this.syncBounds();
 
     const [globalSettings, siteRules] = await Promise.all([loadSettings(), loadSiteRules()]);
@@ -114,6 +117,7 @@ export class VideoOverlay {
 
     this.pipeline?.destroy();
     this.video.style.opacity = this.previousVideoOpacity;
+    this.video.style.zIndex = this.previousVideoZIndex;
     if (this.overlayHost && this.previousHostPosition !== undefined) {
       this.overlayHost.style.position = this.previousHostPosition;
     }
@@ -165,6 +169,8 @@ export class VideoOverlay {
       return;
     }
 
+    this.pruneDuplicateYouTubeOverlays();
+
     if (this.frameGenerationEnabled) {
       const minimumFrameIntervalMs = 1000 / this.frameGenerationTargetFps;
       if (now + 0.5 < this.nextGeneratedFrameAt) {
@@ -184,6 +190,9 @@ export class VideoOverlay {
       this.pipeline?.renderFrame();
       this.recordRenderedFrame();
       this.schedulePresentationProbe();
+      if (this.presentationReady && this.shouldHideNativeVideo) {
+        this.showCanvasPresentation();
+      }
       if (this.hudVisible) {
         this.renderHud();
       }
@@ -230,6 +239,8 @@ export class VideoOverlay {
   }
 
   private renderHud(): void {
+    this.pruneDuplicateYouTubeOverlays();
+
     const title = document.createElement('div');
     title.textContent = 'Mac Video Upscaler';
 
@@ -276,9 +287,7 @@ export class VideoOverlay {
       }
 
       if (presentationLooksUsable) {
-        this.presentationReady = true;
-        this.canvas.style.opacity = '1';
-        this.video.style.opacity = '0';
+        this.showCanvasPresentation();
         if (this.hudVisible) {
           this.renderHud();
         }
@@ -299,6 +308,30 @@ export class VideoOverlay {
     } finally {
       this.presentationProbePending = false;
     }
+  }
+
+  private showCanvasPresentation(): void {
+    this.presentationReady = true;
+    this.canvas.style.opacity = '1';
+    this.video.style.opacity = '0';
+    this.video.style.zIndex = '0';
+  }
+
+  private pruneDuplicateYouTubeOverlays(): void {
+    if (detectSite() !== 'youtube') {
+      return;
+    }
+
+    document.querySelectorAll(`.${OVERLAY_CLASS}`).forEach((node) => {
+      if (node !== this.canvas) {
+        node.remove();
+      }
+    });
+    document.querySelectorAll(`.${HUD_CLASS}`).forEach((node) => {
+      if (node !== this.hud) {
+        node.remove();
+      }
+    });
   }
 }
 

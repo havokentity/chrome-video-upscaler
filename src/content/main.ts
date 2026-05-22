@@ -2,6 +2,21 @@ import { detectSite, selectLargestVisibleVideo } from '../common/site';
 import { loadSettings, patchSettings } from '../common/storage';
 import { VideoOverlay } from '../overlay/video-overlay';
 
+const CONTENT_INSTANCE_KEY = '__macVideoUpscalerContentInstance__';
+
+declare global {
+  interface Window {
+    [CONTENT_INSTANCE_KEY]?: {
+      cleanup(): void;
+    };
+  }
+}
+
+window[CONTENT_INSTANCE_KEY]?.cleanup();
+document.querySelectorAll('.mac-video-upscaler-overlay, .mac-video-upscaler-hud').forEach((node) => {
+  node.remove();
+});
+
 const overlays = new WeakMap<HTMLVideoElement, VideoOverlay>();
 let pendingVideos = new WeakSet<HTMLVideoElement>();
 const managedVideos = new Set<HTMLVideoElement>();
@@ -133,7 +148,7 @@ const rebuildOverlays = (): void => {
   scanVideos();
 };
 
-chrome.runtime.onMessage.addListener((message: unknown) => {
+const handleRuntimeMessage = (message: unknown): void => {
   if (
     typeof message === 'object' &&
     message !== null &&
@@ -144,24 +159,43 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
       void patchSettings({ hudEnabled: !settings.hudEnabled });
     });
   }
-});
+};
 
-chrome.storage.onChanged.addListener((changes, areaName) => {
+const handleStorageChange = (
+  changes: Record<string, chrome.storage.StorageChange>,
+  areaName: string,
+): void => {
   if (areaName !== 'sync' || (!('settings' in changes) && !('siteRules' in changes))) {
     return;
   }
 
   rebuildOverlays();
-});
+};
 
-window.addEventListener('pagehide', () => {
+const cleanup = (): void => {
   observer.disconnect();
+  chrome.runtime.onMessage.removeListener(handleRuntimeMessage);
+  chrome.storage.onChanged.removeListener(handleStorageChange);
+
   if (youtubeRescanHandle !== undefined) {
     window.clearTimeout(youtubeRescanHandle);
+    youtubeRescanHandle = undefined;
   }
-  document.querySelectorAll('video').forEach((video) => {
+
+  overlayGeneration += 1;
+  pendingVideos = new WeakSet<HTMLVideoElement>();
+  managedVideos.forEach((video) => {
     overlays.get(video)?.destroy();
     overlays.delete(video);
-    managedVideos.delete(video);
   });
-});
+  managedVideos.clear();
+  document.querySelectorAll('.mac-video-upscaler-overlay, .mac-video-upscaler-hud').forEach((node) => {
+    node.remove();
+  });
+};
+
+chrome.runtime.onMessage.addListener(handleRuntimeMessage);
+chrome.storage.onChanged.addListener(handleStorageChange);
+window[CONTENT_INSTANCE_KEY] = { cleanup };
+
+window.addEventListener('pagehide', cleanup, { once: true });
