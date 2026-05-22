@@ -1,4 +1,5 @@
 import { detectSite, selectLargestVisibleVideo } from '../common/site';
+import { loadSettings, patchSettings } from '../common/storage';
 import { VideoOverlay } from '../overlay/video-overlay';
 
 const overlays = new WeakMap<HTMLVideoElement, VideoOverlay>();
@@ -139,8 +140,8 @@ chrome.runtime.onMessage.addListener((message: unknown) => {
     'type' in message &&
     message.type === 'mac-video-upscaler:toggle-hud'
   ) {
-    document.querySelectorAll('video').forEach((video) => {
-      overlays.get(video)?.toggleHud();
+    void loadSettings().then((settings) => {
+      void patchSettings({ hudEnabled: !settings.hudEnabled });
     });
   }
 });

@@ -31,6 +31,7 @@ export interface UpscalerSettings {
   ravuVariant: 'auto' | 'zoom' | 'lite';
   frameGenerationEnabled: boolean;
   frameGenerationTargetFps: FrameGenerationTargetFps;
+  hudEnabled: boolean;
   forceWebGL2: boolean;
   forceF32: boolean;
   workgroupSize: '8x8' | '16x16';
@@ -40,11 +41,12 @@ export const DEFAULT_SETTINGS: UpscalerSettings = {
   enabled: true,
   mode: 'auto',
   scale: 1.5,
-  fsrSharpness: 0.2,
+  fsrSharpness: 0.55,
   animeSubMode: 'mode-aa',
   ravuVariant: 'auto',
   frameGenerationEnabled: false,
   frameGenerationTargetFps: 60,
+  hudEnabled: false,
   forceWebGL2: false,
   forceF32: false,
   workgroupSize: '8x8',

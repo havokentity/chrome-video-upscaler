@@ -199,6 +199,10 @@ export const sanitizeSiteSettingsOverride = (
     sanitized.frameGenerationTargetFps = override.frameGenerationTargetFps;
   }
 
+  if (typeof override.hudEnabled === 'boolean') {
+    sanitized.hudEnabled = override.hudEnabled;
+  }
+
   if (typeof override.forceWebGL2 === 'boolean') {
     sanitized.forceWebGL2 = override.forceWebGL2;
   }

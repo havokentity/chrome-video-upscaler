@@ -64,6 +64,8 @@ export class VideoOverlay {
     this.frameGenerationEnabled =
       settings.frameGenerationEnabled && this.pipeline.status.backend !== 'disabled';
     this.frameGenerationTargetFps = settings.frameGenerationTargetFps;
+    this.hudVisible = settings.hudEnabled;
+    this.hud.hidden = !this.hudVisible;
     if (this.frameGenerationEnabled) {
       Object.assign(this.pipeline.status, {
         frameGeneration: `target ${String(this.frameGenerationTargetFps)} fps`,

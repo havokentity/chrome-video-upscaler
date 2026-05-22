@@ -57,6 +57,7 @@ const getRequiredElement = (selector: string): HTMLElement => {
 };
 
 const enabled = document.querySelector<HTMLInputElement>('#enabled');
+const hudEnabled = getRequiredElement('#hudEnabled') as HTMLInputElement;
 const mode = document.querySelector<HTMLSelectElement>('#mode');
 const scale = document.querySelector<HTMLSelectElement>('#scale');
 const fsrSharpness = document.querySelector<HTMLInputElement>('#fsrSharpness');
@@ -95,6 +96,7 @@ FRAME_GENERATION_TARGETS.forEach((value) => {
 
 const settings = await loadSettings();
 enabled.checked = settings.enabled;
+hudEnabled.checked = settings.hudEnabled;
 mode.value = settings.mode;
 scale.value = String(settings.scale);
 frameGenerationEnabled.checked = settings.frameGenerationEnabled;
@@ -145,6 +147,10 @@ updateModeControls();
 
 enabled.addEventListener('change', () => {
   void patchSettings({ enabled: enabled.checked });
+});
+
+hudEnabled.addEventListener('change', () => {
+  void patchSettings({ hudEnabled: hudEnabled.checked });
 });
 
 mode.addEventListener('change', () => {

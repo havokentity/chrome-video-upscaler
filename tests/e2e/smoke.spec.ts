@@ -257,8 +257,12 @@ test('Crisp mode uses the WebGL2 1.5x upscaler on a local MP4 video', async ({
 
     expect(dimensions.cssWidth).toBe(320);
     expect(dimensions.cssHeight).toBe(180);
-    expect(dimensions.canvasWidth).toBe(Math.round(dimensions.sourceWidth * 1.5));
-    expect(dimensions.canvasHeight).toBe(Math.round(dimensions.sourceHeight * 1.5));
+    expect(dimensions.canvasWidth).toBe(
+      Math.max(dimensions.cssWidth, Math.round(dimensions.sourceWidth * 1.5)),
+    );
+    expect(dimensions.canvasHeight).toBe(
+      Math.max(dimensions.cssHeight, Math.round(dimensions.sourceHeight * 1.5)),
+    );
   } finally {
     await closeContext(context);
     await server.close();
@@ -297,6 +301,7 @@ test('enabled setting rebuilds the active overlay without a page refresh', async
       ...DEFAULT_SETTINGS,
       enabled: false,
       forceWebGL2: true,
+      hudEnabled: true,
       mode: 'crisp',
     });
 

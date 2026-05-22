@@ -206,10 +206,21 @@ fn rcas_main(@builtin(global_invocation_id) invocation_id: vec3u) {
   let hit_min = min(mn4, e) / max(4.0 * mx4, vec3f(0.0001));
   let hit_max = (vec3f(1.0) - max(mx4, e)) / min(4.0 * mn4 - vec3f(4.0), vec3f(-0.0001));
   let lobe_rgb = max(-hit_min, hit_max);
-  let sharpness = mix(0.15, 1.0, clamp(params.sharpness_and_scale.x, 0.0, 1.0));
-  let lobe = max(-0.1875, min(max(lobe_rgb.r, max(lobe_rgb.g, lobe_rgb.b)), 0.0)) * sharpness * noise;
+  let user_sharpness = clamp(params.sharpness_and_scale.x, 0.0, 1.0);
+  let sharpness = mix(0.55, 1.65, user_sharpness);
+  let base_lobe = min(max(lobe_rgb.r, max(lobe_rgb.g, lobe_rgb.b)), 0.0);
+  let lobe = max(-0.1875, base_lobe * sharpness * noise);
   let rcp_l = 1.0 / (4.0 * lobe + 1.0);
-  let out_color = clamp((lobe * (b + d + h + f) + e) * rcp_l, vec3f(0.0), vec3f(1.0));
+  var out_color = clamp((lobe * (b + d + h + f) + e) * rcp_l, vec3f(0.0), vec3f(1.0));
+  let high_pass = e - 0.25 * (b + d + f + h);
+  let edge_mask = smoothstep(0.012, 0.16, range_max - range_min);
+  let detail_strength = mix(0.22, 0.85, user_sharpness) * edge_mask;
+  let guard = vec3f(mix(0.025, 0.09, user_sharpness));
+  out_color = clamp(
+    out_color + high_pass * detail_strength,
+    max(vec3f(0.0), min(mn4, e) - guard),
+    min(vec3f(1.0), max(mx4, e) + guard),
+  );
 
   textureStore(output_texture, pixel, vec4f(out_color, 1.0));
 }

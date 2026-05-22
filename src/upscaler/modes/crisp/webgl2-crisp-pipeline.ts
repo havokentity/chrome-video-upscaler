@@ -3,7 +3,7 @@ import type { FramePipeline, PipelineStatus } from '../../pipeline';
 const MIN_SCALE = 1;
 const MAX_SCALE = 2;
 const DEFAULT_SCALE = 1.5;
-const DEFAULT_SHARPNESS = 0.2;
+const DEFAULT_SHARPNESS = 0.55;
 
 const FULLSCREEN_TRIANGLE = new Float32Array([-1, -1, 3, -1, -1, 3]);
 
@@ -204,10 +204,17 @@ void main() {
   vec3 hitMin = min(mn4, e) / max(4.0 * mx4, vec3(0.0001));
   vec3 hitMax = (vec3(1.0) - max(mx4, e)) / min(4.0 * mn4 - vec3(4.0), vec3(-0.0001));
   vec3 lobeRgb = max(-hitMin, hitMax);
-  float sharpness = mix(0.15, 1.0, clamp(u_sharpness, 0.0, 1.0));
-  float lobe = max(-0.1875, min(max(lobeRgb.r, max(lobeRgb.g, lobeRgb.b)), 0.0)) * sharpness * noise;
+  float userSharpness = clamp(u_sharpness, 0.0, 1.0);
+  float sharpness = mix(0.55, 1.65, userSharpness);
+  float baseLobe = min(max(lobeRgb.r, max(lobeRgb.g, lobeRgb.b)), 0.0);
+  float lobe = max(-0.1875, baseLobe * sharpness * noise);
   float rcpL = 1.0 / (4.0 * lobe + 1.0);
   vec3 color = clamp((lobe * (b + d + h + f) + e) * rcpL, vec3(0.0), vec3(1.0));
+  vec3 highPass = e - 0.25 * (b + d + f + h);
+  float edgeMask = smoothstep(0.012, 0.16, rangeMax - rangeMin);
+  float detailStrength = mix(0.22, 0.85, userSharpness) * edgeMask;
+  vec3 guard = vec3(mix(0.025, 0.09, userSharpness));
+  color = clamp(color + highPass * detailStrength, max(vec3(0.0), min(mn4, e) - guard), min(vec3(1.0), max(mx4, e) + guard));
 
   out_color = vec4(color, 1.0);
 }
@@ -472,10 +479,12 @@ export const computeCrispOutputSize = ({
   const normalizedScale = normalizeCrispScale(scale);
   const widthBasis = sourceWidth > 0 ? sourceWidth : requestedWidth;
   const heightBasis = sourceHeight > 0 ? sourceHeight : requestedHeight;
+  const scaledWidth = Math.round(widthBasis * normalizedScale);
+  const scaledHeight = Math.round(heightBasis * normalizedScale);
 
   return {
-    height: Math.max(1, Math.round(heightBasis * normalizedScale)),
-    width: Math.max(1, Math.round(widthBasis * normalizedScale)),
+    height: Math.max(1, requestedHeight, scaledHeight),
+    width: Math.max(1, requestedWidth, scaledWidth),
   };
 };
 

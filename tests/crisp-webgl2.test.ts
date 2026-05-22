@@ -16,8 +16,8 @@ describe('WebGL2 Crisp helpers', () => {
   });
 
   it('normalizes sharpness to the RCAS-style slider range', () => {
-    expect(normalizeCrispSharpness(undefined)).toBe(0.2);
-    expect(normalizeCrispSharpness(Number.POSITIVE_INFINITY)).toBe(0.2);
+    expect(normalizeCrispSharpness(undefined)).toBe(0.55);
+    expect(normalizeCrispSharpness(Number.POSITIVE_INFINITY)).toBe(0.55);
     expect(normalizeCrispSharpness(-0.25)).toBe(0);
     expect(normalizeCrispSharpness(0.65)).toBe(0.65);
     expect(normalizeCrispSharpness(1.5)).toBe(1);
@@ -33,6 +33,18 @@ describe('WebGL2 Crisp helpers', () => {
         sourceWidth: 1920,
       }),
     ).toEqual({ height: 1620, width: 2880 });
+  });
+
+  it('renders at least to the displayed backing size to avoid a second browser upscale', () => {
+    expect(
+      computeCrispOutputSize({
+        requestedHeight: 1440,
+        requestedWidth: 2560,
+        scale: 1.5,
+        sourceHeight: 720,
+        sourceWidth: 1280,
+      }),
+    ).toEqual({ height: 1440, width: 2560 });
   });
 
   it('falls back to requested canvas dimensions before metadata is available', () => {

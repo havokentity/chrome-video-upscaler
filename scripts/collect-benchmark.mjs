@@ -39,6 +39,7 @@ const defaultSettings = {
   ravuVariant: 'auto',
   frameGenerationEnabled: false,
   frameGenerationTargetFps: 60,
+  hudEnabled: false,
   forceWebGL2: false,
   forceF32: false,
   workgroupSize: '8x8',

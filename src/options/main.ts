@@ -18,6 +18,7 @@ const getRequiredElement = (selector: string): HTMLElement => {
 };
 
 const summary = getRequiredElement('#summary') as HTMLParagraphElement;
+const hudEnabled = getRequiredElement('#hudEnabled') as HTMLInputElement;
 const defaultMode = getRequiredElement('#defaultMode') as HTMLSelectElement;
 const modeDescription = getRequiredElement('#modeDescription') as HTMLParagraphElement;
 const scaleField = getRequiredElement('#scaleField') as HTMLLabelElement;
@@ -55,6 +56,7 @@ FRAME_GENERATION_TARGETS.forEach((value) => {
 });
 
 const settings = await loadSettings();
+hudEnabled.checked = settings.hudEnabled;
 defaultMode.value = settings.mode;
 defaultScale.value = String(settings.scale);
 frameGenerationEnabled.checked = settings.frameGenerationEnabled;
@@ -90,6 +92,10 @@ const updateModeControls = (): void => {
 };
 
 updateModeControls();
+
+hudEnabled.addEventListener('change', () => {
+  void patchSettings({ hudEnabled: hudEnabled.checked });
+});
 
 defaultMode.addEventListener('change', () => {
   void patchSettings({ mode: defaultMode.value as UpscalerMode });
