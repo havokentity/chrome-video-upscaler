@@ -183,42 +183,58 @@ float luma(vec3 color) {
 
 void main() {
   float tinySourceBoost = smoothstep(3.0, 10.0, u_scale_ratio);
-  float sampleRadius = mix(1.0, 2.25, tinySourceBoost);
+  float rescueBoost = smoothstep(2.0, 5.5, u_scale_ratio);
+  float sampleRadius = mix(1.0, 2.15, tinySourceBoost);
   vec2 texel = u_output_texel * sampleRadius;
+  vec3 a = texture(u_upscaled, v_uv - texel).rgb;
   vec3 b = texture(u_upscaled, v_uv - vec2(0.0, texel.y)).rgb;
+  vec3 c = texture(u_upscaled, v_uv + vec2(texel.x, -texel.y)).rgb;
   vec3 d = texture(u_upscaled, v_uv - vec2(texel.x, 0.0)).rgb;
   vec3 e = texture(u_upscaled, v_uv).rgb;
   vec3 f = texture(u_upscaled, v_uv + vec2(texel.x, 0.0)).rgb;
+  vec3 g = texture(u_upscaled, v_uv + vec2(-texel.x, texel.y)).rgb;
   vec3 h = texture(u_upscaled, v_uv + vec2(0.0, texel.y)).rgb;
+  vec3 i = texture(u_upscaled, v_uv + texel).rgb;
 
   float bL = luma(b);
   float dL = luma(d);
   float eL = luma(e);
   float fL = luma(f);
   float hL = luma(h);
-  float rangeMax = max(max(max(bL, dL), max(eL, fL)), hL);
-  float rangeMin = min(min(min(bL, dL), min(eL, fL)), hL);
+  float aL = luma(a);
+  float cL = luma(c);
+  float gL = luma(g);
+  float iL = luma(i);
+  float rangeMax = max(max(max(max(bL, dL), max(eL, fL)), hL), max(max(aL, cL), max(gL, iL)));
+  float rangeMin = min(min(min(min(bL, dL), min(eL, fL)), hL), min(min(aL, cL), min(gL, iL)));
   float noise = abs(0.25 * (bL + dL + fL + hL) - eL) / max(rangeMax - rangeMin, 0.0001);
   noise = 1.0 - 0.5 * clamp(noise, 0.0, 1.0);
 
-  vec3 mn4 = min(min(b, d), min(f, h));
-  vec3 mx4 = max(max(b, d), max(f, h));
+  vec3 mn4 = min(min(min(b, d), min(f, h)), min(min(a, c), min(g, i)));
+  vec3 mx4 = max(max(max(b, d), max(f, h)), max(max(a, c), max(g, i)));
   vec3 hitMin = min(mn4, e) / max(4.0 * mx4, vec3(0.0001));
   vec3 hitMax = (vec3(1.0) - max(mx4, e)) / min(4.0 * mn4 - vec3(4.0), vec3(-0.0001));
   vec3 lobeRgb = max(-hitMin, hitMax);
   float userSharpness = clamp(u_sharpness, 0.0, 1.0);
-  float sharpness = mix(0.45, 1.05, userSharpness);
+  float sharpness = mix(0.55, 1.28, userSharpness) + rescueBoost * 0.18;
   float baseLobe = min(max(lobeRgb.r, max(lobeRgb.g, lobeRgb.b)), 0.0);
   float lobe = max(-0.1875, baseLobe * sharpness * noise);
   float rcpL = 1.0 / (4.0 * lobe + 1.0);
   vec3 color = clamp((lobe * (b + d + h + f) + e) * rcpL, vec3(0.0), vec3(1.0));
-  vec3 highPass = e - 0.25 * (b + d + f + h);
-  float edgeMask = smoothstep(0.012, 0.16, rangeMax - rangeMin);
-  float detailStrength = (mix(0.12, 0.55, userSharpness) + tinySourceBoost * 0.22) * edgeMask;
-  float contrastStrength = 0.035 * userSharpness;
-  vec3 guard = vec3(mix(0.025, 0.075, max(userSharpness, tinySourceBoost)));
+  vec3 crossMean = 0.25 * (b + d + f + h);
+  vec3 wideMean = 0.125 * (a + b + c + d + f + g + h + i);
+  vec3 highPass = e - crossMean;
+  vec3 microPass = e - wideMean;
+  float edgeMask = smoothstep(0.008, 0.13, rangeMax - rangeMin);
+  float lineMask = smoothstep(0.012, 0.22, max(abs(dL - fL), abs(bL - hL)));
+  float detailStrength = (mix(0.18, 0.95, userSharpness) + rescueBoost * 0.58) * max(edgeMask, lineMask);
+  float microStrength = rescueBoost * mix(0.08, 0.38, userSharpness) * noise;
+  float contrastStrength = 0.045 * userSharpness + rescueBoost * 0.055;
+  vec3 flatSmoothing = mix(e, wideMean, rescueBoost * (1.0 - edgeMask) * 0.06);
+  color = mix(color, flatSmoothing, rescueBoost * (1.0 - edgeMask) * 0.18);
+  vec3 guard = vec3(mix(0.04, 0.16, max(userSharpness, rescueBoost)));
   color = clamp(
-    color + highPass * detailStrength + (e - vec3(0.5)) * contrastStrength * edgeMask,
+    color + highPass * detailStrength + microPass * microStrength + (e - vec3(0.5)) * contrastStrength * edgeMask,
     max(vec3(0.0), min(mn4, e) - guard),
     min(vec3(1.0), max(mx4, e) + guard)
   );

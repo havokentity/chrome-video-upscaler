@@ -186,41 +186,57 @@ fn rcas_main(@builtin(global_invocation_id) invocation_id: vec3u) {
   let ip = vec2f(pixel);
   let scale_ratio = min(params.output_size.x / params.source_size.x, params.output_size.y / params.source_size.y);
   let tiny_source_boost = smoothstep(3.0, 10.0, scale_ratio);
-  let sample_radius = mix(1.0, 2.25, tiny_source_boost);
+  let rescue_boost = smoothstep(2.0, 5.5, scale_ratio);
+  let sample_radius = mix(1.0, 2.15, tiny_source_boost);
+  let a = sample_output(ip + vec2f(-sample_radius, -sample_radius));
   let b = sample_output(ip + vec2f(0.0, -sample_radius));
+  let c = sample_output(ip + vec2f(sample_radius, -sample_radius));
   let d = sample_output(ip + vec2f(-sample_radius, 0.0));
   let e = sample_output(ip);
   let f = sample_output(ip + vec2f(sample_radius, 0.0));
+  let g = sample_output(ip + vec2f(-sample_radius, sample_radius));
   let h = sample_output(ip + vec2f(0.0, sample_radius));
+  let i = sample_output(ip + vec2f(sample_radius, sample_radius));
 
   let b_l = luma(b);
   let d_l = luma(d);
   let e_l = luma(e);
   let f_l = luma(f);
   let h_l = luma(h);
-  let range_max = max(max(max(b_l, d_l), max(e_l, f_l)), h_l);
-  let range_min = min(min(min(b_l, d_l), min(e_l, f_l)), h_l);
+  let a_l = luma(a);
+  let c_l = luma(c);
+  let g_l = luma(g);
+  let i_l = luma(i);
+  let range_max = max(max(max(max(b_l, d_l), max(e_l, f_l)), h_l), max(max(a_l, c_l), max(g_l, i_l)));
+  let range_min = min(min(min(min(b_l, d_l), min(e_l, f_l)), h_l), min(min(a_l, c_l), min(g_l, i_l)));
   var noise = abs(0.25 * (b_l + d_l + f_l + h_l) - e_l) / max(range_max - range_min, 0.0001);
   noise = 1.0 - 0.5 * clamp(noise, 0.0, 1.0);
 
-  let mn4 = min(min(b, d), min(f, h));
-  let mx4 = max(max(b, d), max(f, h));
+  let mn4 = min(min(min(b, d), min(f, h)), min(min(a, c), min(g, i)));
+  let mx4 = max(max(max(b, d), max(f, h)), max(max(a, c), max(g, i)));
   let hit_min = min(mn4, e) / max(4.0 * mx4, vec3f(0.0001));
   let hit_max = (vec3f(1.0) - max(mx4, e)) / min(4.0 * mn4 - vec3f(4.0), vec3f(-0.0001));
   let lobe_rgb = max(-hit_min, hit_max);
   let user_sharpness = clamp(params.sharpness_and_scale.x, 0.0, 1.0);
-  let sharpness = mix(0.45, 1.05, user_sharpness);
+  let sharpness = mix(0.55, 1.28, user_sharpness) + rescue_boost * 0.18;
   let base_lobe = min(max(lobe_rgb.r, max(lobe_rgb.g, lobe_rgb.b)), 0.0);
   let lobe = max(-0.1875, base_lobe * sharpness * noise);
   let rcp_l = 1.0 / (4.0 * lobe + 1.0);
   var out_color = clamp((lobe * (b + d + h + f) + e) * rcp_l, vec3f(0.0), vec3f(1.0));
-  let high_pass = e - 0.25 * (b + d + f + h);
-  let edge_mask = smoothstep(0.012, 0.16, range_max - range_min);
-  let detail_strength = (mix(0.12, 0.55, user_sharpness) + tiny_source_boost * 0.22) * edge_mask;
-  let contrast_strength = 0.035 * user_sharpness;
-  let guard = vec3f(mix(0.025, 0.075, max(user_sharpness, tiny_source_boost)));
+  let cross_mean = 0.25 * (b + d + f + h);
+  let wide_mean = 0.125 * (a + b + c + d + f + g + h + i);
+  let high_pass = e - cross_mean;
+  let micro_pass = e - wide_mean;
+  let edge_mask = smoothstep(0.008, 0.13, range_max - range_min);
+  let line_mask = smoothstep(0.012, 0.22, max(abs(d_l - f_l), abs(b_l - h_l)));
+  let detail_strength = (mix(0.18, 0.95, user_sharpness) + rescue_boost * 0.58) * max(edge_mask, line_mask);
+  let micro_strength = rescue_boost * mix(0.08, 0.38, user_sharpness) * noise;
+  let contrast_strength = 0.045 * user_sharpness + rescue_boost * 0.055;
+  let flat_smoothing = mix(e, wide_mean, rescue_boost * (1.0 - edge_mask) * 0.06);
+  out_color = mix(out_color, flat_smoothing, rescue_boost * (1.0 - edge_mask) * 0.18);
+  let guard = vec3f(mix(0.04, 0.16, max(user_sharpness, rescue_boost)));
   out_color = clamp(
-    out_color + high_pass * detail_strength + (e - 0.5) * contrast_strength * edge_mask,
+    out_color + high_pass * detail_strength + micro_pass * micro_strength + (e - 0.5) * contrast_strength * edge_mask,
     max(vec3f(0.0), min(mn4, e) - guard),
     min(vec3f(1.0), max(mx4, e) + guard),
   );
