@@ -383,6 +383,45 @@ test('Crisp mode presents dark rendered frames instead of leaving native video o
   }
 });
 
+test('Crisp mode reconstructs a low-res source instead of matching native browser scaling', async ({
+  browserName,
+}, testInfo) => {
+  test.skip(browserName !== 'chromium', 'Chrome extensions can only be loaded in Chromium.');
+
+  expect(
+    existsSync(path.join(extensionPath, 'manifest.json')),
+    'Run `pnpm build` before `pnpm test:e2e`; this test loads the unpacked extension from dist.',
+  ).toBe(true);
+
+  const server = await startStaticServer(fixturesPath);
+  let context: BrowserContext | undefined;
+
+  try {
+    context = await createExtensionContext(testInfo.workerIndex + 35);
+    await writeExtensionSettings(context, {
+      ...DEFAULT_SETTINGS,
+      forceWebGL2: true,
+      fsrSharpness: 0.65,
+      mode: 'crisp',
+      scale: 2,
+    });
+
+    const page = context.pages()[0] ?? (await context.newPage());
+    await page.goto(`${server.origin}/low-res-video-page.html`, { waitUntil: 'domcontentloaded' });
+
+    await expect(page.locator('.mac-video-upscaler-overlay')).toHaveCount(1, { timeout: 10_000 });
+    await expect(page.locator('#sample-video')).toHaveCSS('opacity', '0', { timeout: 10_000 });
+    await expect
+      .poll(async () => sampleDelta(await sampleOverlay(page), await sampleVideo(page)), {
+        timeout: 10_000,
+      })
+      .toBeGreaterThan(0.5);
+  } finally {
+    await closeContext(context);
+    await server.close();
+  }
+});
+
 test('Crisp sharpness changes the rendered WebGL2 output', async ({
   browserName,
 }, testInfo) => {

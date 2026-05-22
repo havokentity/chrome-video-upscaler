@@ -88,9 +88,8 @@ fn easu_main(@builtin(global_invocation_id) invocation_id: vec3u) {
     return;
   }
 
-  let ip = vec2f(pixel);
-  var pp = ip * (params.source_size / params.output_size) +
-    (0.5 * params.source_size / params.output_size - vec2f(0.5));
+  let ip = vec2f(pixel) + vec2f(0.5);
+  var pp = ip * (params.source_size / params.output_size) - vec2f(0.5);
   let fp = floor(pp);
   pp -= fp;
 

@@ -81,8 +81,7 @@ float easuTapWeight(vec2 off, vec2 dir, vec2 len2, float lob, float clp) {
 
 void main() {
   vec2 sourceSize = 1.0 / u_source_texel;
-  vec2 pp = gl_FragCoord.xy * (sourceSize / u_output_size) +
-    (0.5 * sourceSize / u_output_size - vec2(0.5));
+  vec2 pp = gl_FragCoord.xy * (sourceSize / u_output_size) - vec2(0.5);
   vec2 fp = floor(pp);
   pp -= fp;
 
