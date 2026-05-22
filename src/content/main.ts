@@ -12,10 +12,20 @@ declare global {
   }
 }
 
-window[CONTENT_INSTANCE_KEY]?.cleanup();
-document.querySelectorAll('.mac-video-upscaler-overlay, .mac-video-upscaler-hud').forEach((node) => {
-  node.remove();
-});
+const removeInjectedNodes = (): void => {
+  document.querySelectorAll('.mac-video-upscaler-overlay, .mac-video-upscaler-hud').forEach((node) => {
+    node.remove();
+  });
+};
+
+try {
+  window[CONTENT_INSTANCE_KEY]?.cleanup();
+} catch {
+  // A previous content script can survive after an extension reload with an
+  // invalidated chrome runtime. Still continue so this fresh script can attach.
+}
+window[CONTENT_INSTANCE_KEY] = undefined;
+removeInjectedNodes();
 
 const overlays = new WeakMap<HTMLVideoElement, VideoOverlay>();
 let pendingVideos = new WeakSet<HTMLVideoElement>();
@@ -174,8 +184,12 @@ const handleStorageChange = (
 
 const cleanup = (): void => {
   observer.disconnect();
-  chrome.runtime.onMessage.removeListener(handleRuntimeMessage);
-  chrome.storage.onChanged.removeListener(handleStorageChange);
+  try {
+    chrome.runtime.onMessage.removeListener(handleRuntimeMessage);
+    chrome.storage.onChanged.removeListener(handleStorageChange);
+  } catch {
+    // Ignore extension-context invalidation during reload/unload.
+  }
 
   if (youtubeRescanHandle !== undefined) {
     window.clearTimeout(youtubeRescanHandle);
@@ -189,9 +203,7 @@ const cleanup = (): void => {
     overlays.delete(video);
   });
   managedVideos.clear();
-  document.querySelectorAll('.mac-video-upscaler-overlay, .mac-video-upscaler-hud').forEach((node) => {
-    node.remove();
-  });
+  removeInjectedNodes();
 };
 
 chrome.runtime.onMessage.addListener(handleRuntimeMessage);
