@@ -657,6 +657,89 @@ test('Neural-Pro RAVU-Lite changes the rendered WebGL2 output on a paused frame'
   }
 });
 
+test('Neural-Pro explicit RAVU-Zoom changes the rendered WebGL2 output on a paused frame', async ({
+  browserName,
+}, testInfo) => {
+  test.skip(browserName !== 'chromium', 'Chrome extensions can only be loaded in Chromium.');
+
+  expect(
+    existsSync(path.join(extensionPath, 'manifest.json')),
+    'Run `pnpm build` before `pnpm test:e2e`; this test loads the unpacked extension from dist.',
+  ).toBe(true);
+
+  const server = await startStaticServer(fixturesPath);
+  let context: BrowserContext | undefined;
+
+  try {
+    context = await createExtensionContext(testInfo.workerIndex + 166);
+    await writeExtensionSettings(context, {
+      ...DEFAULT_SETTINGS,
+      forceWebGL2: true,
+      hudEnabled: true,
+      mode: 'neural-pro',
+      ravuVariant: 'zoom',
+      scale: 2,
+    });
+
+    const page = context.pages()[0] ?? (await context.newPage());
+    await page.goto(server.origin, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.chrome-video-upscaler-overlay')).toHaveCount(1, { timeout: 10_000 });
+    await pauseOnStillFrame(page);
+    await expect(page.locator('#sample-video')).toHaveCSS('opacity', '0', { timeout: 10_000 });
+    const hud = page.locator('.chrome-video-upscaler-hud').last();
+    await expect(hud).toContainText('webgl2 neural-pro');
+    await expect(hud).toContainText('RAVU-Zoom');
+    await expect(hud).not.toContainText('RAVU-Lite');
+    const nativeSample = await sampleVideo(page);
+
+    await expect
+      .poll(async () => sampleDelta(await sampleOverlay(page), nativeSample), { timeout: 15_000 })
+      .toBeGreaterThan(0.06);
+  } finally {
+    await closeContext(context);
+    await server.close();
+  }
+});
+
+test('Neural-Pro Auto selects lazy RAVU-Zoom at 2x instead of RAVU-Lite', async ({
+  browserName,
+}, testInfo) => {
+  test.skip(browserName !== 'chromium', 'Chrome extensions can only be loaded in Chromium.');
+
+  expect(
+    existsSync(path.join(extensionPath, 'manifest.json')),
+    'Run `pnpm build` before `pnpm test:e2e`; this test loads the unpacked extension from dist.',
+  ).toBe(true);
+
+  const server = await startStaticServer(fixturesPath);
+  let context: BrowserContext | undefined;
+
+  try {
+    context = await createExtensionContext(testInfo.workerIndex + 167);
+    await writeExtensionSettings(context, {
+      ...DEFAULT_SETTINGS,
+      forceWebGL2: true,
+      hudEnabled: true,
+      mode: 'neural-pro',
+      ravuVariant: 'auto',
+      scale: 2,
+    });
+
+    const page = context.pages()[0] ?? (await context.newPage());
+    await page.goto(server.origin, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.chrome-video-upscaler-overlay')).toHaveCount(1, { timeout: 10_000 });
+    await pauseOnStillFrame(page);
+    await expect(page.locator('#sample-video')).toHaveCSS('opacity', '0', { timeout: 10_000 });
+    const hud = page.locator('.chrome-video-upscaler-hud').last();
+    await expect(hud).toContainText('webgl2 neural-pro');
+    await expect(hud).toContainText('RAVU-Zoom');
+    await expect(hud).not.toContainText('RAVU-Lite');
+  } finally {
+    await closeContext(context);
+    await server.close();
+  }
+});
+
 test('enabled setting rebuilds the active overlay without a page refresh', async ({
   browserName,
 }, testInfo) => {

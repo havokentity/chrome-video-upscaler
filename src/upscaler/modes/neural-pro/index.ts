@@ -10,6 +10,7 @@ export {
   createWebGL2NeuralProPipeline,
   WebGL2NeuralProPipeline,
   WebGL2NeuralProPipelineError,
+  resolveWebGL2NeuralProVariant,
   type WebGL2NeuralProPipelineOptions,
   type WebGL2NeuralProPipelineStatus,
 } from './webgl2-neural-pro-pipeline';

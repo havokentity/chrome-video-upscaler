@@ -30,30 +30,31 @@ Exact script:
 
 ```sh
 pnpm build
-node scripts/collect-benchmark.mjs --mode auto,crisp,sharpen,anime,smooth --duration-ms 5000 --output json --output-path "$OUT/benchmarks/benchmark-smoke.json"
-node scripts/collect-benchmark.mjs --mode auto,crisp,sharpen,anime,smooth --duration-ms 5000 --output markdown --output-path "$OUT/benchmarks/benchmark-smoke.md"
+node scripts/collect-benchmark.mjs --duration-ms 5000 --screenshot-dir "$OUT/screenshots/smoke" --output json --output-path "$OUT/benchmarks/benchmark-smoke.json"
+node scripts/collect-benchmark.mjs --duration-ms 5000 --screenshot-dir "$OUT/screenshots/smoke" --output markdown --output-path "$OUT/benchmarks/benchmark-smoke.md"
 ```
 
 Visible troubleshooting run:
 
 ```sh
-node scripts/collect-benchmark.mjs --headed --mode crisp,smooth --duration-ms 5000
+node scripts/collect-benchmark.mjs --headed --mode crisp,smooth,neural-lite,neural-pro --duration-ms 5000 --screenshot-dir "$OUT/screenshots/smoke-headed"
 ```
 
 Strict CI-style run:
 
 ```sh
-node scripts/collect-benchmark.mjs --strict --mode auto,crisp,sharpen,anime,smooth --duration-ms 5000 --output json --output-path "$OUT/benchmarks/benchmark-smoke-strict.json"
+node scripts/collect-benchmark.mjs --strict --duration-ms 5000 --screenshot-dir "$OUT/screenshots/smoke-strict" --output json --output-path "$OUT/benchmarks/benchmark-smoke-strict.json"
 ```
 
 Supported options from `scripts/collect-benchmark.mjs`:
 
 | Option | Meaning |
 | --- | --- |
-| `--mode auto,crisp` | Comma-separated modes. Supported modes are `auto`, `crisp`, `sharpen`, `anime`, and `smooth`. |
+| `--mode auto,crisp` | Comma-separated modes. Supported modes are `none`, `auto`, `crisp`, `sharpen`, `anime`, `smooth`, `edge`, `night-vision`, `predator`, `crt`, `invert`, `cartoon`, `neural-lite`, and `neural-pro`. The default samples all of them. |
 | `--duration-ms 5000` | Sampling window per mode. Must be at least `250`. |
 | `--output json|markdown` | Output format. JSON is best for attachments; Markdown is best for release notes. |
 | `--output-path <file>` | Writes output to a file. Without this, the result prints to stdout. |
+| `--screenshot-dir <dir>` | Optional directory for one full-page HUD screenshot per sampled mode, named `hud-smoke-<mode>.png`. |
 | `--extension <dir>` | Built extension directory. Defaults to `dist`. |
 | `--fixtures <dir>` | Fixture directory. Defaults to `tests/fixtures`. |
 | `--scale 1.5` | Extension scale setting. Must be between `1` and `2`. |
@@ -68,14 +69,16 @@ Expected JSON output:
 - `reason`: present when `skipped` is `true`.
 - `generatedAt`: ISO timestamp.
 - `options`: public script options used for the run.
-- `runs[]`: one row per mode with `mode`, `hudText`, `sourceWidth`, `sourceHeight`, `canvasWidth`, `canvasHeight`, `cssWidth`, `cssHeight`, `videoFrameCallbacks`, `approxVideoCallbackFps`, `animationFrames`, `approxAnimationFps`, and `elapsedMs`.
+- `runs[]`: one row per mode with `mode`, `hudText`, `sourceWidth`, `sourceHeight`, `canvasWidth`, `canvasHeight`, `cssWidth`, `cssHeight`, `videoFrameCallbacks`, `approxVideoCallbackFps`, `animationFrames`, `approxAnimationFps`, `elapsedMs`, optional `screenshotPath`, and optional per-mode `error`.
 - `manualRows[]`: placeholder rows for real manual timing notes.
+
+Important: `approxVideoCallbackFps` and `approxAnimationFps` are smoke-health counters. They are useful for catching blank overlays, broken mode routing, and severe stalls. They are not GPU timer-query measurements and must not be published as real per-frame shader timings.
 
 Expected Markdown output:
 
 - `# Benchmark Smoke Results`
 - Generated timestamp and completed/skipped status.
-- `Smoke Samples` table with mode, HUD/backend text, source size, canvas size, CSS box, callback count, and approximate callback FPS.
+- `Smoke Samples` table with mode, HUD/backend text, source size, canvas size, CSS box, callback count, approximate callback FPS, and screenshot filename when `--screenshot-dir` is used.
 - `Manual Apple Silicon Benchmark Rows` placeholder table. Replace or supplement this table with measured platform results before publishing.
 
 ## Manual HUD Benchmark Pass
@@ -131,6 +134,12 @@ Record browser and GPU state:
 | macOS | TBD | TBD | TBD | 320x180 -> TBD | Sharpen | 1.5 | 0.2 | TBD | TBD | TBD | TBD |
 | macOS | TBD | TBD | TBD | 320x180 -> TBD | Anime | 1.5 | 0.2 | TBD | TBD | TBD | TBD |
 | macOS | TBD | TBD | TBD | 320x180 -> TBD | Smooth | 1.5 | 0.2 | TBD | TBD | TBD | TBD |
+| macOS | TBD | TBD | TBD | 320x180 -> TBD | Edge | 1.5 | 0.2 | TBD | TBD | TBD | TBD |
+| macOS | TBD | TBD | TBD | 320x180 -> TBD | Night Vision | 1.5 | 0.2 | TBD | TBD | TBD | TBD |
+| macOS | TBD | TBD | TBD | 320x180 -> TBD | Predator | 1.5 | 0.2 | TBD | TBD | TBD | TBD |
+| macOS | TBD | TBD | TBD | 320x180 -> TBD | CRT | 1.5 | 0.2 | TBD | TBD | TBD | TBD |
+| macOS | TBD | TBD | TBD | 320x180 -> TBD | Invert | 1.5 | 0.2 | TBD | TBD | TBD | TBD |
+| macOS | TBD | TBD | TBD | 320x180 -> TBD | Cartoon | 1.5 | 0.2 | TBD | TBD | TBD | TBD |
 | macOS | TBD | TBD | TBD | 320x180 -> TBD | Neural-Lite | 1.5 | 0.2 | TBD | TBD | TBD | TBD |
 | macOS | TBD | TBD | TBD | 320x180 -> TBD | Neural-Pro | 1.5 | 0.2 | TBD | TBD | TBD | TBD |
 | Windows | TBD | TBD | TBD | 320x180 -> TBD | Auto | 1.5 | 0.2 | TBD | TBD | TBD | TBD |

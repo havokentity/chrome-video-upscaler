@@ -33,6 +33,7 @@ interface ArtCnnMetadataArtifact {
 
 interface ArtCnnReportModule {
   readonly buildMetadataArtifact: (report: unknown) => ArtCnnMetadataArtifact;
+  readonly generateWgslPassOneExecutable: (artifactOrReport: unknown) => string;
   readonly generateWgslSkeleton: (report: unknown) => string;
   readonly parseArtCnnShaderSourceFile: (sourcePath: string) => unknown;
 }
@@ -51,6 +52,10 @@ const metadataPath = join(
 const skeletonPath = join(
   process.cwd(),
   'src/upscaler/modes/neural-lite/artcnn-c4f16-native-skeleton.wgsl',
+);
+const passOnePath = join(
+  process.cwd(),
+  'src/upscaler/modes/neural-lite/artcnn-c4f16-native-pass1.wgsl',
 );
 const upstreamIt = existsSync(upstreamSource) ? it : it.skip;
 
@@ -129,6 +134,18 @@ describe('ArtCNN shader-native parser and generator', () => {
     expect(skeleton).toContain('output=conv2d_6 output_step=1x1');
   });
 
+  upstreamIt('keeps the generated executable pass 1 slice aligned to upstream constants', async () => {
+    const {
+      buildMetadataArtifact,
+      generateWgslPassOneExecutable,
+      parseArtCnnShaderSourceFile,
+    } = await loadReportModule();
+    const artifact = buildMetadataArtifact(parseArtCnnShaderSourceFile(upstreamSource));
+    const passOne = readFileSync(passOnePath, 'utf8');
+
+    expect(passOne).toBe(generateWgslPassOneExecutable(artifact));
+  });
+
   it('ships stable parser artifacts even when upstream checkout is absent', () => {
     const checkedIn = JSON.parse(readFileSync(metadataPath, 'utf8')) as ArtCnnMetadataArtifact;
     const skeleton = readFileSync(skeletonPath, 'utf8');
@@ -145,5 +162,22 @@ describe('ArtCNN shader-native parser and generator', () => {
     );
     expect(skeleton.match(/@workgroup_size\(12, 16, 1\)/g)).toHaveLength(8);
     expect(skeleton).toContain('fn artcnn_c4f16_pass_08');
+  });
+
+  it('generates a checked-in executable pass 1 WGSL slice from checked-in metadata', async () => {
+    const { generateWgslPassOneExecutable } = await loadReportModule();
+    const checkedIn = JSON.parse(readFileSync(metadataPath, 'utf8')) as ArtCnnMetadataArtifact;
+    const passOne = readFileSync(passOnePath, 'utf8');
+
+    expect(passOne).toBe(generateWgslPassOneExecutable(checkedIn));
+    expect(passOne).toContain('enable f16;');
+    expect(passOne).toContain('@group(0) @binding(0) var artcnn_luma: texture_2d<f32>;');
+    expect(passOne).toContain('@group(0) @binding(1) var artcnn_out: texture_storage_2d<rgba16float, write>;');
+    expect(passOne).toContain('@compute @workgroup_size(12, 16, 1)');
+    expect(passOne).toContain('fn artcnn_c4f16_pass_01');
+    expect(passOne).toContain('var result0 = vec4<f16>(f16(-0.0027198044)');
+    expect(passOne).toContain('result3 += vec4<f16>');
+    expect(passOne).toContain('artcnn_store_pass1(output_base + vec2u(1, 1), result3);');
+    expect(passOne).not.toContain('TODO');
   });
 });

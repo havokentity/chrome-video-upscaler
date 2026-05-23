@@ -38,6 +38,8 @@ pnpm package:store
 
 That command runs a store-mode Vite build with source maps disabled, writes `chrome-video-upscaler-v0.1.0.zip`, and prints its SHA256. The zip root contains `manifest.json`, which is the format Chrome Web Store expects.
 
+Store-facing draft copy lives in `docs/store-listing.md`, and the v0.1.0 release-notes draft lives in `docs/release-notes-v0.1.0.md`.
+
 ## Modes Planned for v1
 
 | Mode | Backend | License | Notes |
@@ -120,6 +122,8 @@ node scripts/collect-benchmark.mjs --output markdown --output-path docs/benchmar
 ```
 
 Manual GPU timing numbers are still pending. The first measured table will list the exact GPU/OS, Chrome version, source resolution, output target, and per-mode GPU time.
+
+Release validation runbooks are in `docs/platform-validation.md`, `docs/screenshot-capture.md`, and `docs/release-readiness.md`.
 
 ## Licensing
 

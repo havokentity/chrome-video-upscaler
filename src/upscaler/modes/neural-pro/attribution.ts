@@ -32,7 +32,7 @@ export const RAVU_PLANNED_SOURCES = [
     license: RAVU_UPSTREAM.license,
     importStatus: 'imported-with-lgpl-header',
     notes:
-      'RAVU-Zoom-AR r3 is imported with the original LGPL header preserved and is lazy-loaded only for explicit Zoom selection.',
+      'RAVU-Zoom-AR r3 is imported with the original LGPL header preserved and is lazy-loaded for explicit Zoom or Auto near 2x.',
   },
   {
     variant: 'lite',

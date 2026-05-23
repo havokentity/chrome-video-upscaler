@@ -11,16 +11,32 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const defaultExtensionPath = path.join(repoRoot, 'dist');
 const defaultFixturesPath = path.join(repoRoot, 'tests/fixtures');
 
-export const BENCHMARK_MODES = ['auto', 'crisp', 'sharpen', 'anime', 'smooth'];
+export const BENCHMARK_MODES = [
+  'none',
+  'auto',
+  'crisp',
+  'sharpen',
+  'anime',
+  'smooth',
+  'edge',
+  'night-vision',
+  'predator',
+  'crt',
+  'invert',
+  'cartoon',
+  'neural-lite',
+  'neural-pro',
+];
 export const DEFAULT_BENCHMARK_OPTIONS = {
   durationMs: 2_000,
   extensionPath: defaultExtensionPath,
   fixturesPath: defaultFixturesPath,
   headless: true,
-  modes: ['auto', 'crisp', 'sharpen', 'anime', 'smooth'],
+  modes: [...BENCHMARK_MODES],
   output: 'json',
   outputPath: undefined,
   scale: 1.5,
+  screenshotDir: undefined,
   sharpness: 0.2,
   strict: false,
 };
@@ -78,6 +94,8 @@ export const parseBenchmarkArgs = (argv = []) => {
       options.outputPath = path.resolve(readValue(arg));
     } else if (arg === '--scale') {
       options.scale = Number(readValue(arg));
+    } else if (arg === '--screenshot-dir') {
+      options.screenshotDir = path.resolve(readValue(arg));
     } else if (arg === '--sharpness') {
       options.sharpness = Number(readValue(arg));
     } else if (arg === '--strict') {
@@ -101,6 +119,7 @@ Options:
   --duration-ms 3000      Frame sampling window per mode. Default: ${DEFAULT_BENCHMARK_OPTIONS.durationMs}
   --output json|markdown  Output format. Default: json
   --output-path <file>    Write output to a file instead of stdout
+  --screenshot-dir <dir>  Optional directory for one full-page HUD screenshot per sampled mode
   --extension <dir>       Built extension directory. Default: dist
   --fixtures <dir>        Fixture directory. Default: tests/fixtures
   --scale 1.5             Extension scale setting. Default: 1.5
@@ -111,7 +130,8 @@ Options:
 
 Examples:
   pnpm build
-  node scripts/collect-benchmark.mjs --mode crisp,smooth --duration-ms 5000
+  node scripts/collect-benchmark.mjs --mode crisp,smooth,neural-lite,neural-pro --duration-ms 5000
+  node scripts/collect-benchmark.mjs --screenshot-dir release-captures/manual/screenshots
   node scripts/collect-benchmark.mjs --output markdown --output-path docs/benchmark-local.md
 `;
 
@@ -137,12 +157,12 @@ export const formatBenchmarkMarkdown = (result) => {
     `Generated: ${result.generatedAt}`,
     `Status: ${result.skipped ? `skipped - ${result.reason}` : 'completed'}`,
     '',
-    'This smoke helper measures extension load/render health on the local MP4 fixture. It is not a substitute for manual Apple Silicon GPU timing.',
+    'This smoke helper measures extension load/render health on the local MP4 fixture. Approximate FPS values are browser callback rates, not shader time, GPU timer queries, or quality scores.',
     '',
     '## Smoke Samples',
     '',
-    '| Mode | Backend/HUD | Source | Canvas | CSS Box | Video callbacks | Approx callback FPS |',
-    '|---|---|---:|---:|---:|---:|---:|',
+    '| Mode | Backend/HUD | Source | Canvas | CSS Box | Video callbacks | Approx callback FPS | Screenshot |',
+    '|---|---|---:|---:|---:|---:|---:|---|',
   ];
 
   for (const run of result.runs ?? []) {
@@ -155,6 +175,7 @@ export const formatBenchmarkMarkdown = (result) => {
         `${run.cssWidth}x${run.cssHeight}`,
         String(run.videoFrameCallbacks),
         run.approxVideoCallbackFps.toFixed(1),
+        run.screenshotPath ? path.basename(run.screenshotPath) : 'n/a',
       ].join(' | ').replace(/^/, '| ').replace(/$/, ' |'),
     );
   }
@@ -213,13 +234,17 @@ export const runBenchmarkSmoke = async (options = DEFAULT_BENCHMARK_OPTIONS) => 
     const runs = [];
 
     for (const mode of options.modes) {
-      await writeExtensionSettings(context, {
-        ...defaultSettings,
-        mode,
-        scale: options.scale,
-        fsrSharpness: options.sharpness,
-      });
-      runs.push(await collectModeSample(page, server.origin, mode, options.durationMs));
+      try {
+        await writeExtensionSettings(context, {
+          ...defaultSettings,
+          mode,
+          scale: options.scale,
+          fsrSharpness: options.sharpness,
+        });
+        runs.push(await collectModeSample(page, server.origin, mode, options));
+      } catch (error) {
+        runs.push(createModeFailureSample(mode, error));
+      }
     }
 
     return {
@@ -275,6 +300,7 @@ const publicOptions = (options) => ({
   modes: options.modes,
   output: options.output,
   scale: options.scale,
+  screenshotDir: options.screenshotDir,
   sharpness: options.sharpness,
 });
 
@@ -365,7 +391,7 @@ const writeExtensionSettings = async (context, settings) => {
   }, settings);
 };
 
-const collectModeSample = async (page, origin, mode, durationMs) => {
+const collectModeSample = async (page, origin, mode, options) => {
   await page.goto(`${origin}?mode=${mode}&t=${Date.now().toString()}`, {
     waitUntil: 'domcontentloaded',
   });
@@ -378,7 +404,7 @@ const collectModeSample = async (page, origin, mode, durationMs) => {
   await page.keyboard.press('Control+Shift+U');
   await page.locator('.chrome-video-upscaler-hud').waitFor({ state: 'attached', timeout: 5_000 });
 
-  return page.evaluate(
+  const sample = await page.evaluate(
     async ({ sampleDurationMs, sampleMode }) => {
       const video = document.querySelector('#sample-video');
       const overlay = document.querySelector('.chrome-video-upscaler-overlay');
@@ -439,9 +465,40 @@ const collectModeSample = async (page, origin, mode, durationMs) => {
         videoFrameCallbacks,
       };
     },
-    { sampleDurationMs: durationMs, sampleMode: mode },
+    { sampleDurationMs: options.durationMs, sampleMode: mode },
   );
+
+  if (!options.screenshotDir) {
+    return sample;
+  }
+
+  await mkdir(options.screenshotDir, { recursive: true });
+  const screenshotPath = path.join(options.screenshotDir, `hud-smoke-${sanitizeFilePart(mode)}.png`);
+  await page.screenshot({ fullPage: true, path: screenshotPath });
+  return {
+    ...sample,
+    screenshotPath,
+  };
 };
+
+const sanitizeFilePart = (value) => value.replace(/[^a-z0-9-]+/gi, '-').toLowerCase();
+
+const createModeFailureSample = (mode, error) => ({
+  animationFrames: 0,
+  approxAnimationFps: 0,
+  approxVideoCallbackFps: 0,
+  canvasHeight: 0,
+  canvasWidth: 0,
+  cssHeight: 0,
+  cssWidth: 0,
+  elapsedMs: 0,
+  error: error instanceof Error ? error.message : String(error),
+  hudText: `failed - ${error instanceof Error ? error.message : String(error)}`,
+  mode,
+  sourceHeight: 0,
+  sourceWidth: 0,
+  videoFrameCallbacks: 0,
+});
 
 const main = async () => {
   const options = parseBenchmarkArgs(process.argv.slice(2));

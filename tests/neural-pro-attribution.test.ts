@@ -10,6 +10,7 @@ import {
   RAVU_UPSTREAM,
   RAVU_ZOOM_LUT3_AR_VALUE_COUNT,
   RAVU_ZOOM_LUT3_VALUE_COUNT,
+  resolveWebGL2NeuralProVariant,
   resolveNeuralProVariant,
 } from '../src/upscaler/modes/neural-pro';
 
@@ -45,6 +46,10 @@ describe('Neural-Pro RAVU attribution and source import', () => {
     expect(resolveNeuralProVariant('auto', 1.7)).toBe('lite');
     expect(resolveNeuralProVariant('zoom', 1.5)).toBe('zoom');
     expect(resolveNeuralProVariant('lite', 2)).toBe('lite');
+    expect(resolveWebGL2NeuralProVariant('auto', 2)).toBe('zoom');
+    expect(resolveWebGL2NeuralProVariant('auto', 1.7)).toBe('lite');
+    expect(resolveWebGL2NeuralProVariant('zoom', 1.5)).toBe('zoom');
+    expect(resolveWebGL2NeuralProVariant('lite', 2)).toBe('lite');
   });
 
   it('keeps an explicit attribution reminder for the enabling slice', () => {
@@ -73,6 +78,7 @@ describe('Neural-Pro RAVU attribution and source import', () => {
 
   it('lazy-loads and parses the imported RAVU-Zoom shader pass and LUT payloads', async () => {
     const source = await getRavuZoomHookSource();
+    const cachedSource = await getRavuZoomHookSource();
     expect(source.source).toContain('GNU Lesser General Public License');
     expect(source.pass.description).toBe('RAVU-Zoom-AR (luma, r3)');
     expect(source.pass.code).toContain('texture(ravu_zoom_lut3');
@@ -81,5 +87,6 @@ describe('Neural-Pro RAVU attribution and source import', () => {
     expect(source.lut3ArValues).toHaveLength(RAVU_ZOOM_LUT3_AR_VALUE_COUNT);
     expect(Number.isFinite(source.lut3Values[0])).toBe(true);
     expect(Number.isFinite(source.lut3ArValues[0])).toBe(true);
+    expect(cachedSource).toBe(source);
   });
 });

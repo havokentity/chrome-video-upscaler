@@ -17,8 +17,15 @@ screenshots/hud-<platform>-crisp.png
 screenshots/hud-<platform>-sharpen.png
 screenshots/hud-<platform>-anime.png
 screenshots/hud-<platform>-smooth.png
+screenshots/hud-<platform>-edge.png
+screenshots/hud-<platform>-night-vision.png
+screenshots/hud-<platform>-predator.png
+screenshots/hud-<platform>-crt.png
+screenshots/hud-<platform>-invert.png
+screenshots/hud-<platform>-cartoon.png
 screenshots/hud-<platform>-neural-lite.png
 screenshots/hud-<platform>-neural-pro.png
+screenshots/smoke/hud-smoke-<mode>.png
 gpu/chrome-version.png
 gpu/chrome-gpu.png
 ```
@@ -49,6 +56,14 @@ Open:
 ```text
 http://127.0.0.1:4173/sample-video-page.html
 ```
+
+Optional automated HUD smoke captures:
+
+```sh
+node scripts/collect-benchmark.mjs --duration-ms 5000 --screenshot-dir "$OUT/screenshots/smoke" --output json --output-path "$OUT/benchmarks/benchmark-smoke.json"
+```
+
+These screenshots are full-page fixture evidence for mode routing and HUD status. They are useful release attachments, but they do not replace hand-cropped store screenshots or true GPU timing captures.
 
 ## OS Capture Commands
 
@@ -130,8 +145,16 @@ Capture the same fixture and display size for each mode when possible.
 | `hud-<platform>-sharpen.png` | Sharpen | Sharpen path and visible paused-frame change. |
 | `hud-<platform>-anime.png` | Anime | Anime/WebGL2 path and visible output difference. |
 | `hud-<platform>-smooth.png` | Smooth | Smooth/WebGPU path where available, or explicit unavailable/fallback text. |
+| `hud-<platform>-edge.png` | Edge Detect | Edge output is visible. |
+| `hud-<platform>-night-vision.png` | Night Vision | Green-luma output is visible. |
+| `hud-<platform>-predator.png` | Predator | Thermal false-color output is visible. |
+| `hud-<platform>-crt.png` | CRT | Scanline/CRT treatment is visible. |
+| `hud-<platform>-invert.png` | Invert | Colors invert visibly. |
+| `hud-<platform>-cartoon.png` | Cartoon | Toon/rotoscope output is visible. |
 | `hud-<platform>-neural-lite.png` | Neural-Lite | ArtCNN/ONNX path, WebGPU/WASM fallback, or explicit runtime error. |
 | `hud-<platform>-neural-pro.png` | Neural-Pro | RAVU-Lite or RAVU-Zoom path, or explicit performance/fallback limit. |
+
+Automated smoke screenshots use `screenshots/smoke/hud-smoke-<mode>.png`. Keep them alongside manual HUD captures when possible because they show the exact route that the CLI sampled.
 
 ## Screenshot Record Template
 

@@ -61,23 +61,23 @@ Get-Item "chrome-video-upscaler-v$Version.zip" | Select-Object FullName, Length
 
 | Platform | Required Checks | Commands | Evidence |
 | --- | --- | --- | --- |
-| macOS Apple Silicon | Auto, Crisp, Sharpen, Anime, Smooth, Neural-Lite, and Neural-Pro on the local fixture. Confirm WebGPU path where available and WebGL2 fallback. Run native comparison when Xcode/Swift is installed. | `pnpm verify`; `pnpm test:e2e`; `node scripts/collect-benchmark.mjs --mode auto,crisp,sharpen,anime,smooth --duration-ms 5000 --output json --output-path "$OUT/benchmarks/benchmark-smoke.json"`; `pnpm native:build`; `pnpm native:sample` | HUD screenshots per mode, benchmark smoke JSON/Markdown, Chrome version, `chrome://gpu`, native output or failure reason. |
-| macOS Intel | Auto, Crisp, Sharpen, Anime, and Smooth on the local fixture. Try Neural-Lite and Neural-Pro, but record fallback or performance limits clearly. | `pnpm verify`; `pnpm test:e2e`; benchmark smoke command above | HUD screenshots, fallback notes, performance notes, Chrome/GPU evidence. |
+| macOS Apple Silicon | All smoke modes on the local fixture: None, Auto, Crisp, Sharpen, Anime, Smooth, Edge, Night Vision, Predator, CRT, Invert, Cartoon, Neural-Lite, and Neural-Pro. Confirm WebGPU path where available and WebGL2 fallback. Run native comparison when Xcode/Swift is installed. | `pnpm verify`; `pnpm test:e2e`; `node scripts/collect-benchmark.mjs --duration-ms 5000 --screenshot-dir "$OUT/screenshots/smoke" --output json --output-path "$OUT/benchmarks/benchmark-smoke.json"`; `pnpm native:build`; `pnpm native:sample` | HUD screenshots per mode, benchmark smoke JSON/Markdown, Chrome version, `chrome://gpu`, native output or failure reason. |
+| macOS Intel | All smoke modes on the local fixture. Record Neural-Lite and Neural-Pro fallback or performance limits clearly. | `pnpm verify`; `pnpm test:e2e`; benchmark smoke command above | HUD screenshots, fallback notes, performance notes, Chrome/GPU evidence. |
 | Windows 11 | Test Intel, AMD, or Nvidia GPU path available to the tester. Disable or record RTX VSR/driver video enhancement state before comparing visuals. Confirm no macOS-only wording appears in UI or store capture text. | `pnpm verify`; `pnpm test:e2e`; benchmark smoke command with PowerShell `$Out` path | HUD screenshots, driver version, Chrome/GPU evidence, RTX VSR or driver enhancement state. |
 | Linux | Test Chrome Stable on the active display server. Record X11 or Wayland, GPU driver stack, WebGPU availability, and WebGL2 fallback behavior. | `pnpm verify`; `pnpm test:e2e`; benchmark smoke command above | HUD screenshots, display server notes, sandbox/codec issues, Chrome/GPU evidence. |
 
 Windows PowerShell benchmark command:
 
 ```powershell
-node scripts/collect-benchmark.mjs --mode auto,crisp,sharpen,anime,smooth --duration-ms 5000 --output json --output-path "$Out\benchmarks\benchmark-smoke.json"
-node scripts/collect-benchmark.mjs --mode auto,crisp,sharpen,anime,smooth --duration-ms 5000 --output markdown --output-path "$Out\benchmarks\benchmark-smoke.md"
+node scripts/collect-benchmark.mjs --duration-ms 5000 --screenshot-dir "$Out\screenshots\smoke" --output json --output-path "$Out\benchmarks\benchmark-smoke.json"
+node scripts/collect-benchmark.mjs --duration-ms 5000 --screenshot-dir "$Out\screenshots\smoke" --output markdown --output-path "$Out\benchmarks\benchmark-smoke.md"
 ```
 
 macOS/Linux benchmark command:
 
 ```sh
-node scripts/collect-benchmark.mjs --mode auto,crisp,sharpen,anime,smooth --duration-ms 5000 --output json --output-path "$OUT/benchmarks/benchmark-smoke.json"
-node scripts/collect-benchmark.mjs --mode auto,crisp,sharpen,anime,smooth --duration-ms 5000 --output markdown --output-path "$OUT/benchmarks/benchmark-smoke.md"
+node scripts/collect-benchmark.mjs --duration-ms 5000 --screenshot-dir "$OUT/screenshots/smoke" --output json --output-path "$OUT/benchmarks/benchmark-smoke.json"
+node scripts/collect-benchmark.mjs --duration-ms 5000 --screenshot-dir "$OUT/screenshots/smoke" --output markdown --output-path "$OUT/benchmarks/benchmark-smoke.md"
 ```
 
 ## Mode Evidence
@@ -92,6 +92,12 @@ Capture at least one HUD screenshot for each result:
 | Sharpen | HUD shows Sharpen path and paused-frame detail changes. | No visible change or console error. |
 | Anime | HUD shows Anime/WebGL2 path and output differs from native frame. | Initialization or shader compile error. |
 | Smooth | HUD shows Smooth/WebGPU path where available. | WebGPU unavailable, fallback, or browser block reason. |
+| Edge | HUD shows Edge Detect and clear edge output. | Silent no-op or no visible edge response. |
+| Night Vision | HUD shows Night Vision and the green-luma output is visible. | Silent no-op or no visible mode change. |
+| Predator | HUD shows Predator and thermal false-color output is visible. | Silent no-op or no visible mode change. |
+| CRT | HUD shows CRT and scanline/CRT treatment is visible. | Silent no-op or no visible mode change. |
+| Invert | HUD shows Invert and colors invert visibly. | Silent no-op or no visible mode change. |
+| Cartoon | HUD shows Cartoon and toon/rotoscope treatment is visible. | Silent no-op or no visible mode change. |
 | Neural-Lite | ArtCNN/ONNX path initializes, or a clear WebGPU/WASM fallback/error is shown. | Silent no-op or missing model/runtime asset. |
 | Neural-Pro | RAVU-Lite or RAVU-Zoom path initializes, or performance limits are clear. | Silent no-op, severe responsiveness issue, or missing shader asset. |
 
