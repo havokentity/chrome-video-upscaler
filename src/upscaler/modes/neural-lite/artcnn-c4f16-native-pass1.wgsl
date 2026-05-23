@@ -5,9 +5,9 @@ enable f16;
  * Source: ArtCNN_C4F16.glsl from Artoriuz/ArtCNN, MIT licensed.
  * Source SHA-256: 03d0b3d31cb82c898a94a46663021a3e8f02c5a21d69c5cfdf0208de4bfd453e
  *
- * This file is not runtime-wired yet. It is the first faithful WGSL
+ * This file is runtime-wired by the experimental shader-native WebGPU
  * compute pass generated from constantsByResult so the shader-native
- * port can advance with stable, reviewable artifacts.
+ * path and kept generated so CPU/reference checks stay reproducible.
  */
 
 struct ArtCnnNativeParams {

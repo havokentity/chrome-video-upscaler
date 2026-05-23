@@ -62,7 +62,7 @@ export class DisabledPipeline implements FramePipeline {
 
 type ImplementedMode = Extract<
   UpscalerMode,
-  'crisp' | 'sharpen' | 'anime' | 'smooth' | 'neural-pro' | FunFilterMode
+  'crisp' | 'sharpen' | 'anime' | 'smooth' | 'neural-lite' | 'neural-pro' | FunFilterMode
 >;
 
 const isImplementedMode = (mode: UpscalerMode): mode is ImplementedMode =>
@@ -70,6 +70,7 @@ const isImplementedMode = (mode: UpscalerMode): mode is ImplementedMode =>
   mode === 'sharpen' ||
   mode === 'anime' ||
   mode === 'smooth' ||
+  mode === 'neural-lite' ||
   mode === 'neural-pro' ||
   mode === 'edge' ||
   mode === 'night-vision' ||
@@ -88,6 +89,75 @@ const isFunFilterMode = (mode: UpscalerMode): mode is FunFilterMode =>
 
 const getErrorMessage = (error: unknown, fallback: string): string =>
   error instanceof Error ? error.message : fallback;
+
+const createNeuralLitePipeline = async (
+  canvas: HTMLCanvasElement,
+  video: HTMLVideoElement,
+  settings: UpscalerSettings,
+): Promise<FramePipeline> => {
+  const wantsWebGlPreview = settings.forceWebGL2;
+  const wantsNative =
+    settings.neuralLiteBackend === 'shader-native' || settings.neuralLiteBackend === 'auto';
+  const wantsOnnx = settings.neuralLiteBackend === 'onnx' || settings.neuralLiteBackend === 'auto';
+
+  if (wantsWebGlPreview) {
+    try {
+      return createWebGL2NeuralLitePipeline(canvas, video, { scale: settings.scale });
+    } catch (error) {
+      const reason = getErrorMessage(error, 'Unknown WebGL2 Neural-Lite error.');
+      return new DisabledPipeline(`WebGL2 Neural-Lite failed: ${reason}`, 'neural-lite');
+    }
+  }
+
+  let nativeFailure: string | undefined;
+  if (wantsNative && 'gpu' in navigator && navigator.gpu && !settings.forceF32) {
+    try {
+      return await createWebGpuNeuralLitePipeline({
+        canvas,
+        presentationFormat: navigator.gpu.getPreferredCanvasFormat(),
+        scale: settings.scale,
+        video,
+      });
+    } catch (error) {
+      nativeFailure = getErrorMessage(error, 'Unknown shader-native ArtCNN Neural-Lite error.');
+      if (settings.neuralLiteBackend === 'shader-native') {
+        return new DisabledPipeline(
+          `Shader-native ArtCNN Neural-Lite failed: ${nativeFailure}`,
+          'neural-lite',
+        );
+      }
+    }
+  } else if (settings.neuralLiteBackend === 'shader-native' && settings.forceF32) {
+    return new DisabledPipeline(
+      'Shader-native ArtCNN Neural-Lite requires f16; disable Force f32 to run it.',
+      'neural-lite',
+    );
+  }
+
+  if (wantsOnnx && 'gpu' in navigator && navigator.gpu) {
+    try {
+      const pipeline = createWebGpuArtCnnPipeline(canvas, video, { scale: settings.scale });
+      if (nativeFailure !== undefined) {
+        const onnxReason = pipeline.status.reason ?? 'loading ONNX Runtime ArtCNN.';
+        pipeline.status.reason = `Shader-native ArtCNN failed: ${nativeFailure}; ${onnxReason}`;
+      }
+      return pipeline;
+    } catch (error) {
+      const reason = getErrorMessage(error, 'Unknown ONNX Runtime ArtCNN Neural-Lite error.');
+      if (settings.neuralLiteBackend === 'onnx') {
+        return new DisabledPipeline(`ONNX Runtime ArtCNN Neural-Lite failed: ${reason}`, 'neural-lite');
+      }
+    }
+  }
+
+  try {
+    return createWebGL2NeuralLitePipeline(canvas, video, { scale: settings.scale });
+  } catch (error) {
+    const reason = getErrorMessage(error, 'Unknown WebGL2 Neural-Lite error.');
+    const prefix = nativeFailure === undefined ? '' : `Shader-native ArtCNN failed: ${nativeFailure}; `;
+    return new DisabledPipeline(`${prefix}WebGL2 Neural-Lite failed: ${reason}`, 'neural-lite');
+  }
+};
 
 export const createPipeline = async (
   canvas: HTMLCanvasElement,
@@ -111,34 +181,13 @@ export const createPipeline = async (
       ? ''
       : `Auto -> ${autoClassification.mode}${mode !== autoClassification.mode ? ` (using ${mode} until ${autoClassification.mode} lands)` : ''}; `;
 
-  if (requestedMode === 'neural-lite') {
-    if ('gpu' in navigator && navigator.gpu && !settings.forceWebGL2) {
-      try {
-        return createWebGpuArtCnnPipeline(canvas, video, {
-          scale: settings.scale,
-        });
-      } catch (error) {
-        const reason = getErrorMessage(error, 'Unknown WebGPU ArtCNN Neural-Lite error.');
-        return new DisabledPipeline(`WebGPU ArtCNN Neural-Lite failed: ${reason}`, 'neural-lite');
-      }
+  if (mode === 'neural-lite') {
+    const pipeline = await createNeuralLitePipeline(canvas, video, settings);
+    pipeline.status.mode = requestedMode === 'auto' ? 'auto -> neural-lite' : 'neural-lite';
+    if (autoPrefix.length > 0 && pipeline.status.reason !== undefined) {
+      pipeline.status.reason = `${autoPrefix}${pipeline.status.reason}`;
     }
-
-    try {
-      return createWebGL2NeuralLitePipeline(canvas, video, {
-        scale: settings.scale,
-      });
-    } catch (error) {
-      if (settings.forceWebGL2) {
-        const reason = getErrorMessage(error, 'Unknown WebGL2 Neural-Lite error.');
-        return new DisabledPipeline(`WebGL2 Neural-Lite failed: ${reason}`, 'neural-lite');
-      }
-    }
-
-    return createWebGpuNeuralLitePipeline({
-      canvas,
-      scale: settings.scale,
-      video,
-    });
+    return pipeline;
   }
 
   if (requestedMode === 'neural-pro') {

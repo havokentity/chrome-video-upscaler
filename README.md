@@ -56,14 +56,14 @@ Store-facing draft copy lives in `docs/store-listing.md`, and the v0.1.0 release
 | CRT | WebGL2 | MIT | Experimental scanline, vignette, and color-fringe filter. |
 | Inverted Colors | WebGL2 | MIT | Experimental inverted color filter. |
 | Cartoon Rotoscope | WebGL2 | MIT | Experimental toon-shader look with posterized colors and inked edges. |
-| Neural-Lite | ONNX Runtime WebGPU + WASM fallback, WebGL2 diagnostic fallback | MIT | Runs the imported ArtCNN C4F16 ONNX model through ONNX Runtime with WebGPU requested and WASM available as ORT's safety fallback. Force WebGL2 keeps the older residual preview fallback for diagnostics. |
+| Neural-Lite | Shader-native WebGPU, ONNX Runtime fallback, WebGL2 diagnostic fallback | MIT | Runs the generated ArtCNN C4F16 f16 WGSL pass chain when WebGPU `shader-f16` is available. ONNX Runtime remains selectable as a packaged fallback, and Force WebGL2 keeps the older residual preview path for diagnostics. |
 | Neural-Pro | WebGL2 + WebGPU staging | LGPL-3.0-or-later | WebGL2 runs imported upstream RAVU-Lite-AR r3 and lazy-loads the much larger RAVU-Zoom-AR r3 hook only when the Zoom variant is selected. WebGPU remains a translation staging path. |
 
 ## How It Works
 
 The content script finds visible `<video>` elements, mounts a pointer-transparent canvas over the video box, resolves global settings plus allow/block/site overrides for the current hostname, and hands frames to a reusable upscaler pipeline. The original video is kept in the page for audio, controls, captions, fullscreen, and site event handling, then visually hidden while the overlay presents processed frames. Blocked or allow-list-missed sites keep the original video visible and show the disable reason in the HUD.
 
-Crisp, Sharpen, Anime, and Neural-Pro RAVU currently prefer the WebGL2 paths because those are the visually verified live-video implementations. Neural-Pro auto uses RAVU-Zoom near 2x and RAVU-Lite below that, while explicit RAVU-Zoom lazy-loads its large LGPL hook into a separate extension chunk. Neural-Lite now uses ArtCNN C4F16 through ONNX Runtime with WebGPU requested and ORT's WASM fallback available, with the WebGL2 preview path kept for diagnostics. The current WebGPU shader paths upload frames with `copyExternalImageToTexture`, reuse GPU resources, validate WGSL through Tint to MSL in CI, and use `8x8x1` compute workgroups where compute is active.
+Crisp, Sharpen, Anime, and Neural-Pro RAVU currently prefer the WebGL2 paths because those are the visually verified live-video implementations. Neural-Pro auto uses RAVU-Zoom near 2x and RAVU-Lite below that, while explicit RAVU-Zoom lazy-loads its large LGPL hook into a separate extension chunk. Neural-Lite can use the shader-native ArtCNN C4F16 WGSL pass chain, the packaged ONNX Runtime path, or the WebGL2 preview path. The current WebGPU shader paths upload frames with `copyExternalImageToTexture`, reuse GPU resources, validate WGSL through Tint to MSL in CI, and use `8x8x1` compute workgroups where compute is active.
 
 Experimental frame generation is a presentation pacing option: it asks the overlay to render at a 60 fps or 120 fps target instead of waiting only for decoded video frame callbacks. This is useful for responsiveness testing and display pacing, but it is not optical-flow motion interpolation yet.
 
@@ -92,7 +92,7 @@ The native bench currently uses AVFoundation plus Metal compute for the `crisp` 
 - WebGL2 Crisp: automated Playwright smoke test writes extension settings, activates Crisp, verifies HUD mode text, checks backing resolution, and pixel-diffs sharpness changes on a paused frame.
 - WebGL2 Sharpen: automated Playwright smoke test pixel-diffs CAS sharpness changes on a paused frame.
 - WebGL2 Anime and Neural-Pro RAVU-Lite/RAVU-Zoom: automated Playwright smoke tests pixel-diff Anime against the native paused frame and route Neural-Pro through its HUD status so the paths cannot silently no-op.
-- Neural-Lite ArtCNN: ONNX Runtime path is packaged with a small ArtCNN C4F16 model and ORT WebGPU sidecar. Browser smoke coverage verifies the path initializes; headless Chromium may let ORT fall back to WASM even when the WebGPU provider is requested.
+- Neural-Lite ArtCNN: shader-native WebGPU requires `shader-f16` and remains experimental while visual tuning continues. The ONNX Runtime path is still packaged with a small ArtCNN C4F16 model and ORT WebGPU sidecar; headless Chromium may let ORT fall back to WASM even when the WebGPU provider is requested.
 - Routed modes: automated Playwright smoke verifies Sharpen, Anime, Smooth, Neural-Lite, and Neural-Pro reach their expected HUD status.
 - Per-site controls: automated Playwright smoke verifies a blocked hostname disables the overlay pipeline without hiding the original video.
 - WebGPU shaders: CI validates WGSL to MSL with Dawn Tint.

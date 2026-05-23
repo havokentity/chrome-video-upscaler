@@ -1,7 +1,9 @@
 import {
   FRAME_GENERATION_TARGETS,
+  NEURAL_LITE_BACKENDS,
   SCALE_FACTORS,
   UPSCALER_MODES,
+  type NeuralLiteBackend,
   type ScaleFactor,
   type UpscalerMode,
 } from '../common/modes';
@@ -35,6 +37,8 @@ const fsrSharpness = getRequiredElement('#fsrSharpness') as HTMLInputElement;
 const sharpnessValue = getRequiredElement('#sharpnessValue') as HTMLOutputElement;
 const animeField = getRequiredElement('#animeField') as HTMLFieldSetElement;
 const animeSubMode = getRequiredElement('#animeSubMode') as HTMLSelectElement;
+const neuralLiteField = getRequiredElement('#neuralLiteField') as HTMLFieldSetElement;
+const neuralLiteBackend = getRequiredElement('#neuralLiteBackend') as HTMLSelectElement;
 const ravuField = getRequiredElement('#ravuField') as HTMLFieldSetElement;
 const ravuVariant = getRequiredElement('#ravuVariant') as HTMLSelectElement;
 const supportNote = getRequiredElement('#supportNote') as HTMLParagraphElement;
@@ -54,6 +58,11 @@ SCALE_FACTORS.forEach((value) => {
 FRAME_GENERATION_TARGETS.forEach((value) => {
   frameGenerationTarget.add(new Option(`${String(value)} fps`, String(value)));
 });
+NEURAL_LITE_BACKENDS.forEach((value) => {
+  const label =
+    value === 'shader-native' ? 'Shader-native WebGPU' : value === 'onnx' ? 'ONNX Runtime' : 'Auto';
+  neuralLiteBackend.add(new Option(label, value));
+});
 
 const settings = await loadSettings();
 hudEnabled.checked = settings.hudEnabled;
@@ -63,6 +72,7 @@ frameGenerationEnabled.checked = settings.frameGenerationEnabled;
 frameGenerationTarget.value = String(settings.frameGenerationTargetFps);
 fsrSharpness.value = String(settings.fsrSharpness);
 animeSubMode.value = settings.animeSubMode;
+neuralLiteBackend.value = settings.neuralLiteBackend;
 ravuVariant.value = settings.ravuVariant;
 forceWebGL2.checked = settings.forceWebGL2;
 forceF32.checked = settings.forceF32;
@@ -86,6 +96,8 @@ const updateModeControls = (): void => {
   sharpnessValue.textContent = sharpness.toFixed(2);
   animeField.hidden = !controlState.animeVisible;
   animeField.disabled = true;
+  neuralLiteField.hidden = !controlState.neuralLiteVisible;
+  neuralLiteField.disabled = false;
   ravuField.hidden = !controlState.ravuVisible;
   ravuField.disabled = false;
   supportNote.textContent = controlState.supportNote;
@@ -124,6 +136,14 @@ fsrSharpness.addEventListener('input', () => {
 
 animeSubMode.addEventListener('change', () => {
   void patchSettings({ animeSubMode: animeSubMode.value === 'mode-a' ? 'mode-a' : 'mode-aa' });
+});
+
+neuralLiteBackend.addEventListener('change', () => {
+  const next: NeuralLiteBackend =
+    neuralLiteBackend.value === 'shader-native' || neuralLiteBackend.value === 'onnx'
+      ? neuralLiteBackend.value
+      : 'auto';
+  void patchSettings({ neuralLiteBackend: next });
 });
 
 ravuVariant.addEventListener('change', () => {

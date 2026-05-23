@@ -66,9 +66,10 @@ describe('options UI model', () => {
     });
     expect(getModeControlState('neural-lite')).toMatchObject({
       implemented: true,
+      neuralLiteVisible: true,
       scaleVisible: true,
       sharpnessVisible: false,
-      supportNote: 'Neural-Lite requests ONNX Runtime WebGPU with WASM fallback; Force WebGL2 uses the preview fallback.',
+      supportNote: 'Neural-Lite Auto tries shader-native WebGPU first, then ONNX Runtime, then WebGL2 preview.',
     });
   });
 

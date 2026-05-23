@@ -25,12 +25,17 @@ export const FRAME_GENERATION_TARGETS = [60, 120] as const;
 
 export type FrameGenerationTargetFps = (typeof FRAME_GENERATION_TARGETS)[number];
 
+export const NEURAL_LITE_BACKENDS = ['auto', 'onnx', 'shader-native'] as const;
+
+export type NeuralLiteBackend = (typeof NEURAL_LITE_BACKENDS)[number];
+
 export interface UpscalerSettings {
   enabled: boolean;
   mode: UpscalerMode;
   scale: ScaleFactor;
   fsrSharpness: number;
   animeSubMode: 'mode-a' | 'mode-aa';
+  neuralLiteBackend: NeuralLiteBackend;
   ravuVariant: 'auto' | 'zoom' | 'lite';
   frameGenerationEnabled: boolean;
   frameGenerationTargetFps: FrameGenerationTargetFps;
@@ -46,6 +51,7 @@ export const DEFAULT_SETTINGS: UpscalerSettings = {
   scale: 1.5,
   fsrSharpness: 0.35,
   animeSubMode: 'mode-aa',
+  neuralLiteBackend: 'auto',
   ravuVariant: 'auto',
   frameGenerationEnabled: false,
   frameGenerationTargetFps: 60,

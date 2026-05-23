@@ -62,6 +62,19 @@
         </label>
       </fieldset>
 
+      <fieldset id="neuralLiteField">
+        <legend>ArtCNN</legend>
+        <label>
+          Runtime
+          <select id="neuralLiteBackend">
+            <option value="auto">Auto</option>
+            <option value="shader-native">Shader-native WebGPU</option>
+            <option value="onnx">ONNX Runtime</option>
+          </select>
+        </label>
+        <p class="note">Shader-native is the new f16 WGSL pass chain. ONNX keeps the packaged model fallback.</p>
+      </fieldset>
+
       <fieldset id="ravuField">
         <legend>RAVU</legend>
         <label>

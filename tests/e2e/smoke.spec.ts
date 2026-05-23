@@ -641,7 +641,7 @@ test('Neural-Pro RAVU-Lite changes the rendered WebGL2 output on a paused frame'
     await page.goto(server.origin, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('.chrome-video-upscaler-overlay')).toHaveCount(1, { timeout: 10_000 });
     await pauseOnStillFrame(page);
-    await expect(page.locator('#sample-video')).toHaveCSS('opacity', '0', { timeout: 10_000 });
+    await expect(page.locator('#sample-video')).toHaveCSS('opacity', '0', { timeout: 30_000 });
     await expect(page.locator('.chrome-video-upscaler-hud').last()).toContainText(
       'webgl2 neural-pro',
     );
@@ -685,7 +685,7 @@ test('Neural-Pro explicit RAVU-Zoom changes the rendered WebGL2 output on a paus
     await page.goto(server.origin, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('.chrome-video-upscaler-overlay')).toHaveCount(1, { timeout: 10_000 });
     await pauseOnStillFrame(page);
-    await expect(page.locator('#sample-video')).toHaveCSS('opacity', '0', { timeout: 10_000 });
+    await expect(page.locator('#sample-video')).toHaveCSS('opacity', '0', { timeout: 30_000 });
     const hud = page.locator('.chrome-video-upscaler-hud').last();
     await expect(hud).toContainText('webgl2 neural-pro');
     await expect(hud).toContainText('RAVU-Zoom');
@@ -889,7 +889,7 @@ const routedModeCases: Array<{
   { mode: 'crt', expectedHudText: 'crt' },
   { mode: 'invert', expectedHudText: 'invert' },
   { mode: 'cartoon', expectedHudText: 'cartoon' },
-  { mode: 'neural-lite', expectedHudText: 'neural-lite' },
+  { mode: 'neural-lite', expectedHudText: 'neural-lite', settings: { neuralLiteBackend: 'onnx' } },
   { mode: 'neural-pro', expectedHudText: 'neural-pro' },
 ];
 

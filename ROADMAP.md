@@ -21,7 +21,8 @@
 - [x] Add lazy-loaded WebGL2 RAVU-Zoom with LGPL headers and NOTICE entries.
 - [x] Draft store listing and v0.1.0 release notes.
 - [x] Generate ArtCNN C4F16 shader-native WGSL pass artifacts and CPU/reference checks.
-- [ ] Wire ArtCNN C4F16 shader-native WebGPU runtime for lower package size.
+- [x] Wire ArtCNN C4F16 shader-native WebGPU runtime behind an Auto/ONNX/shader-native selector.
+- [ ] Tune ArtCNN C4F16 shader-native visual quality and performance against ONNX Runtime.
 - [ ] Port ArtCNN C4F32 shader-native WebGPU path.
 - [ ] Port WebGPU Neural-Pro / RAVU with LGPL headers and NOTICE entries.
 - [ ] Add timestamp-query GPU timing, screenshots, and measured cross-platform benchmarks.

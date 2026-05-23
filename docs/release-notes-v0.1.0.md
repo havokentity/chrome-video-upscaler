@@ -101,13 +101,13 @@ The release package should also be checked for:
 - HTML5 video does not expose motion vectors or depth, so this release does not match temporal ML scalers such as RTX Video Super Resolution.
 - Frame generation is presentation pacing only. It re-renders available decoded frames to a target cadence and does not synthesize optical-flow intermediate frames.
 - Neural-Lite uses ONNX Runtime Web and may fall back to WASM or run slowly on some systems.
-- ArtCNN shader-native WebGPU runtime is not complete; generated C4F16 pass artifacts and CPU/reference checks exist, but runtime wiring remains disabled.
+- ArtCNN shader-native WebGPU runtime is experimental; generated C4F16 pass artifacts are wired behind the Neural-Lite runtime selector, with ONNX Runtime still available as a fallback.
 - Neural-Pro RAVU-Zoom is lazy-loaded for WebGL2, but WebGPU RAVU is still future work.
 - Performance and visual quality vary by GPU, browser version, video resolution, site player behavior, and display scaling.
 
 ## Next Work
 
-- Wire the shader-native ArtCNN pass chain into Neural-Lite and tune GPU performance against the ONNX Runtime path.
+- Tune shader-native ArtCNN visual quality and GPU performance against the ONNX Runtime path.
 - Translate RAVU to WebGPU with LGPL headers and attribution preserved.
 - Add real timestamp-query GPU timing where browser support permits.
 - Capture real benchmark and screenshot evidence across macOS, Windows, and Linux.

@@ -4,7 +4,7 @@ enable f16;
  * Generated executable ArtCNN C4F16 pass 8 depth-to-space slice.
  * Source: ArtCNN_C4F16.glsl from Artoriuz/ArtCNN, MIT licensed.
  * Source SHA-256: 03d0b3d31cb82c898a94a46663021a3e8f02c5a21d69c5cfdf0208de4bfd453e
- * Runtime wiring remains disabled until full CPU/reference validation lands.
+ * Runtime wiring is experimental and validated by CPU/reference checks.
  */
 
 struct ArtCnnNativeParams {

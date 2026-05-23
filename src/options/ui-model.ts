@@ -30,7 +30,7 @@ export const MODE_DESCRIPTIONS: Record<UpscalerMode, string> = {
   crt: 'Experimental CRT scanline, vignette, and color-fringe WebGL2 filter.',
   invert: 'Experimental inverted color WebGL2 filter.',
   cartoon: 'Experimental toon-shader rotoscope WebGL2 filter.',
-  'neural-lite': 'Real ArtCNN C4F16 ONNX model through ONNX Runtime, with WebGL2 preview fallback.',
+  'neural-lite': 'ArtCNN C4F16 with shader-native WebGPU, ONNX Runtime, and WebGL2 preview fallbacks.',
   'neural-pro': 'LGPL RAVU-Lite-AR r3 WebGL2 port. RAVU-Zoom remains pending.',
 };
 
@@ -56,6 +56,7 @@ export interface ModeControlState {
   frameGenerationVisible: boolean;
   implemented: boolean;
   ravuVisible: boolean;
+  neuralLiteVisible: boolean;
   scaleVisible: boolean;
   sharpnessLabel: string;
   sharpnessVisible: boolean;
@@ -84,6 +85,7 @@ export const getModeControlState = (mode: UpscalerMode): ModeControlState => {
     animeVisible: mode === 'anime',
     frameGenerationVisible: !isNone,
     implemented,
+    neuralLiteVisible: mode === 'neural-lite',
     ravuVisible: mode === 'neural-pro',
     scaleVisible: !isNone && !isSharpen,
     sharpnessLabel: isSharpen ? 'CAS sharpness' : 'FSR sharpness',
@@ -96,7 +98,7 @@ export const getModeControlState = (mode: UpscalerMode): ModeControlState => {
         : isAnime
           ? 'Anime uses the upstream Anime4K Fast CNN chain on WebGL2 first.'
           : isNeuralLite
-            ? 'Neural-Lite requests ONNX Runtime WebGPU with WASM fallback; Force WebGL2 uses the preview fallback.'
+            ? 'Neural-Lite Auto tries shader-native WebGPU first, then ONNX Runtime, then WebGL2 preview.'
           : isNeuralPro
             ? 'Neural-Pro runs the imported LGPL RAVU-Lite WebGL2 port; RAVU-Zoom is pending.'
           : isSmooth

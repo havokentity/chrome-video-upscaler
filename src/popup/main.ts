@@ -1,7 +1,9 @@
 import {
   FRAME_GENERATION_TARGETS,
+  NEURAL_LITE_BACKENDS,
   SCALE_FACTORS,
   UPSCALER_MODES,
+  type NeuralLiteBackend,
   type ScaleFactor,
   type UpscalerMode,
 } from '../common/modes';
@@ -38,7 +40,7 @@ const MODE_NOTES: Record<UpscalerMode, string> = {
   crt: 'Experimental CRT scanlines, vignette, and color-fringe styling.',
   invert: 'Experimental inverted color filter.',
   cartoon: 'Experimental toon-shader rotoscope look with posterized colors and inked edges.',
-  'neural-lite': 'Real ArtCNN C4F16 ONNX model through ONNX Runtime, with WebGL2 preview fallback.',
+  'neural-lite': 'ArtCNN C4F16 with shader-native WebGPU, ONNX Runtime, and WebGL2 preview fallbacks.',
   'neural-pro': 'LGPL RAVU-Lite-AR r3 port. RAVU-Zoom remains pending.',
 };
 
@@ -85,6 +87,8 @@ const sharpnessLabel = getRequiredElement('#sharpnessLabel');
 const sharpnessValue = getRequiredElement('#sharpnessValue') as HTMLOutputElement;
 const animeField = getRequiredElement('#animeField') as HTMLFieldSetElement;
 const animeSubMode = getRequiredElement('#animeSubMode') as HTMLSelectElement;
+const neuralLiteField = getRequiredElement('#neuralLiteField') as HTMLFieldSetElement;
+const neuralLiteBackend = getRequiredElement('#neuralLiteBackend') as HTMLSelectElement;
 const ravuField = getRequiredElement('#ravuField') as HTMLFieldSetElement;
 const ravuVariant = getRequiredElement('#ravuVariant') as HTMLSelectElement;
 const supportNote = getRequiredElement('#supportNote') as HTMLParagraphElement;
@@ -104,6 +108,11 @@ SCALE_FACTORS.forEach((value) => {
 FRAME_GENERATION_TARGETS.forEach((value) => {
   frameGenerationTarget.add(new Option(`${String(value)} fps`, String(value)));
 });
+NEURAL_LITE_BACKENDS.forEach((value) => {
+  const label =
+    value === 'shader-native' ? 'Shader-native WebGPU' : value === 'onnx' ? 'ONNX Runtime' : 'Auto';
+  neuralLiteBackend.add(new Option(label, value));
+});
 
 const settings = await loadSettings();
 enabled.checked = settings.enabled;
@@ -114,6 +123,7 @@ frameGenerationEnabled.checked = settings.frameGenerationEnabled;
 frameGenerationTarget.value = String(settings.frameGenerationTargetFps);
 fsrSharpness.value = String(settings.fsrSharpness);
 animeSubMode.value = settings.animeSubMode;
+neuralLiteBackend.value = settings.neuralLiteBackend;
 ravuVariant.value = settings.ravuVariant;
 
 const updateModeControls = (): void => {
@@ -144,6 +154,8 @@ const updateModeControls = (): void => {
   sharpnessValue.textContent = sharpness.toFixed(2);
   animeField.hidden = selectedMode !== 'anime';
   animeField.disabled = false;
+  neuralLiteField.hidden = selectedMode !== 'neural-lite';
+  neuralLiteField.disabled = false;
   ravuField.hidden = selectedMode !== 'neural-pro';
   ravuField.disabled = false;
   supportNote.textContent = IMPLEMENTED_MODES.has(selectedMode)
@@ -156,7 +168,7 @@ const updateModeControls = (): void => {
         : isAnime
           ? 'Anime uses the visually verified WebGL2 path first, with WebGPU fallback.'
         : isNeuralLite
-          ? 'Neural-Lite requests ONNX Runtime WebGPU with WASM fallback; Force WebGL2 uses the preview fallback.'
+          ? 'Neural-Lite Auto tries shader-native WebGPU first, then ONNX Runtime, then WebGL2 preview.'
         : isNeuralPro
           ? 'Neural-Pro runs the imported LGPL RAVU-Lite WebGL2 port; RAVU-Zoom is pending.'
         : isFunFilter
@@ -201,6 +213,14 @@ fsrSharpness.addEventListener('input', () => {
 
 animeSubMode.addEventListener('change', () => {
   void patchSettings({ animeSubMode: animeSubMode.value === 'mode-a' ? 'mode-a' : 'mode-aa' });
+});
+
+neuralLiteBackend.addEventListener('change', () => {
+  const next: NeuralLiteBackend =
+    neuralLiteBackend.value === 'shader-native' || neuralLiteBackend.value === 'onnx'
+      ? neuralLiteBackend.value
+      : 'auto';
+  void patchSettings({ neuralLiteBackend: next });
 });
 
 ravuVariant.addEventListener('change', () => {

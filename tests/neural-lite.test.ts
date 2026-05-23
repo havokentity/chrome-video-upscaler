@@ -87,7 +87,7 @@ describe('Neural-Lite ArtCNN', () => {
     expect(existsSync(join(process.cwd(), 'public', ORT_ASYNCIFY_WASM_PATH))).toBe(true);
   });
 
-  it('keeps the shader-native WebGPU ArtCNN port placeholder disabled until weights land', async () => {
+  it('reports shader-native requirements when WebGPU is unavailable', async () => {
     const canvas = {
       height: 360,
       width: 640,
@@ -97,20 +97,10 @@ describe('Neural-Lite ArtCNN', () => {
       videoWidth: 854,
     } as HTMLVideoElement;
 
-    const pipeline = await createWebGpuNeuralLitePipeline({ canvas, scale: 1.5, video });
-
-    expect(pipeline.status.backend).toBe('disabled');
-    expect(pipeline.status.mode).toBe('neural-lite');
-    expect(pipeline.status.variant).toBe('ArtCNN_C4F16');
-    expect(pipeline.status.upstreamCommit).toBe(ARTCNN_UPSTREAM.verifiedCommit);
-    expect(pipeline.status.reason).toBe(getNeuralLiteDisabledReason());
-
-    pipeline.resize(640, 360);
-    pipeline.renderFrame();
-
-    expect(pipeline.status.canvasWidth).toBe(1281);
-    expect(pipeline.status.canvasHeight).toBe(720);
-    expect(pipeline.status.sourceWidth).toBe(854);
-    expect(pipeline.status.sourceHeight).toBe(480);
+    await expect(createWebGpuNeuralLitePipeline({ canvas, scale: 1.5, video })).rejects.toThrow(
+      'WebGPU is not available',
+    );
+    expect(getNeuralLiteDisabledReason()).toContain('shader-f16');
+    expect(getNeuralLiteDisabledReason()).toContain(ARTCNN_UPSTREAM.verifiedCommit);
   });
 });

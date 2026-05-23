@@ -51,6 +51,18 @@
             </select>
           </label>
         </fieldset>
+        <fieldset id="neuralLiteField">
+          <legend>ArtCNN</legend>
+          <label>
+            Runtime
+            <select id="neuralLiteBackend">
+              <option value="auto">Auto</option>
+              <option value="shader-native">Shader-native WebGPU</option>
+              <option value="onnx">ONNX Runtime</option>
+            </select>
+          </label>
+          <p class="note">Shader-native runs generated f16 WGSL passes. ONNX uses the packaged model and ORT fallback.</p>
+        </fieldset>
         <fieldset id="ravuField">
           <legend>RAVU</legend>
           <label>
