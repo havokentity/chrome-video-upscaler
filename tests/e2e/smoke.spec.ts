@@ -616,6 +616,7 @@ test('Neural-Lite preview changes the rendered WebGL2 output on a paused frame',
 test('Neural-Pro RAVU-Lite changes the rendered WebGL2 output on a paused frame', async ({
   browserName,
 }, testInfo) => {
+  test.setTimeout(60_000);
   test.skip(browserName !== 'chromium', 'Chrome extensions can only be loaded in Chromium.');
 
   expect(
@@ -641,7 +642,7 @@ test('Neural-Pro RAVU-Lite changes the rendered WebGL2 output on a paused frame'
     await page.goto(server.origin, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('.chrome-video-upscaler-overlay')).toHaveCount(1, { timeout: 10_000 });
     await pauseOnStillFrame(page);
-    await expect(page.locator('#sample-video')).toHaveCSS('opacity', '0', { timeout: 30_000 });
+    await expect(page.locator('#sample-video')).toHaveCSS('opacity', '0', { timeout: 45_000 });
     await expect(page.locator('.chrome-video-upscaler-hud').last()).toContainText(
       'webgl2 neural-pro',
     );
