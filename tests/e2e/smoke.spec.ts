@@ -890,8 +890,12 @@ const routedModeCases: Array<{
   { mode: 'crt', expectedHudText: 'crt' },
   { mode: 'invert', expectedHudText: 'invert' },
   { mode: 'cartoon', expectedHudText: 'cartoon' },
-  { mode: 'neural-lite', expectedHudText: 'neural-lite', settings: { neuralLiteBackend: 'onnx' } },
-  { mode: 'neural-pro', expectedHudText: 'neural-pro' },
+  {
+    mode: 'neural-lite',
+    expectedHudText: 'neural-lite',
+    settings: { forceWebGL2: true, neuralLiteBackend: 'onnx' },
+  },
+  { mode: 'neural-pro', expectedHudText: 'neural-pro', settings: { forceWebGL2: true, ravuVariant: 'lite' } },
 ];
 
 for (const { mode, expectedHudText, expectedVideoOpacity, settings } of routedModeCases) {
