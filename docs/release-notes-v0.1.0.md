@@ -21,7 +21,7 @@ These notes are for the first public release candidate. Do not describe this rel
 | Anime | WebGL2 path uses bundled Anime4K-derived Fast Mode A/A+A blocks; WebGPU remains a staging port. |
 | Smooth | WebGPU Lanczos/Jinc-style upscaler; fuller EWA tuning remains future work. |
 | Neural-Lite | Packaged ArtCNN C4F16 ONNX model through ONNX Runtime Web with WebGPU requested and WASM fallback available. This can be slow depending on Chrome/GPU support. |
-| Neural-Pro | WebGL2 RAVU-Lite path plus lazy-loaded RAVU-Zoom path. WebGPU RAVU is not implemented yet. |
+| Neural-Pro | WebGPU RAVU-Lite path with WebGL2 fallback, plus lazy-loaded WebGL2 RAVU-Zoom. |
 | Experimental Filters | Edge Detect, Night Vision, Predator, CRT, Inverted Colors, and Cartoon Rotoscope for diagnostics and fun visual modes. |
 
 ## Packaging
@@ -102,13 +102,13 @@ The release package should also be checked for:
 - Frame generation is presentation pacing only. It re-renders available decoded frames to a target cadence and does not synthesize optical-flow intermediate frames.
 - Neural-Lite uses ONNX Runtime Web and may fall back to WASM or run slowly on some systems.
 - ArtCNN shader-native WebGPU runtime is experimental; generated C4F16 pass artifacts are wired behind the Neural-Lite runtime selector, with ONNX Runtime still available as a fallback.
-- Neural-Pro RAVU-Zoom is lazy-loaded for WebGL2, but WebGPU RAVU is still future work.
+- Neural-Pro RAVU-Zoom is lazy-loaded for WebGL2; WebGPU RAVU-Zoom is still future work.
 - Performance and visual quality vary by GPU, browser version, video resolution, site player behavior, and display scaling.
 
 ## Next Work
 
 - Tune shader-native ArtCNN visual quality and GPU performance against the ONNX Runtime path.
-- Translate RAVU to WebGPU with LGPL headers and attribution preserved.
+- Translate RAVU-Zoom to WebGPU with LGPL headers and attribution preserved.
 - Add real timestamp-query GPU timing where browser support permits.
 - Capture real benchmark and screenshot evidence across macOS, Windows, and Linux.
 - Tune Crisp/Smooth quality against the native side-by-side bench and add visual regression fixtures.

@@ -79,7 +79,7 @@ describe('options UI model', () => {
       ravuVisible: true,
       scaleVisible: true,
       sharpnessVisible: false,
-      supportNote: 'Neural-Pro runs the imported LGPL RAVU-Lite WebGL2 port; RAVU-Zoom is pending.',
+      supportNote: 'Neural-Pro tries WebGPU RAVU-Lite first; RAVU-Zoom uses the imported WebGL2 path.',
     });
   });
 });

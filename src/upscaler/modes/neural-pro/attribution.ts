@@ -43,7 +43,7 @@ export const RAVU_PLANNED_SOURCES = [
     license: RAVU_UPSTREAM.license,
     importStatus: 'imported-with-lgpl-header',
     notes:
-      'RAVU-Lite-AR r3 is imported with the original LGPL header preserved and is used by the first Neural-Pro WebGL2 port.',
+      'RAVU-Lite-AR r3 is imported with the original LGPL header preserved and is used by Neural-Pro WebGPU Lite plus WebGL2 fallback paths.',
   },
 ] as const satisfies readonly RavuPlannedSource[];
 

@@ -44,7 +44,7 @@ Current modes include:
 - Anime: Anime4K-derived WebGL2 path for illustrated content.
 - Smooth: WebGPU Lanczos/Jinc-style path for softer live-action upscaling.
 - Neural-Lite: ArtCNN through packaged ONNX Runtime Web, with WebGPU requested and WASM fallback available.
-- Neural-Pro: RAVU-Lite and lazy-loaded RAVU-Zoom WebGL2 shader paths for heavier opt-in upscaling.
+- Neural-Pro: WebGPU RAVU-Lite where available, plus WebGL2 fallback and lazy-loaded RAVU-Zoom shader paths for heavier opt-in upscaling.
 - Experimental looks: Edge Detect, Night Vision, Predator, CRT, Inverted Colors, and Cartoon Rotoscope.
 
 The popup provides a master toggle, mode selection, scale, sharpness, frame pacing, HUD visibility, per-site controls, and developer toggles. The HUD can show mode, backend, source and output resolution, rendered FPS, frame-generation target, and status details.
@@ -57,7 +57,7 @@ Important limits:
 - Cross-origin video without compatible CORS behavior can block frame access.
 - HTML5 video does not expose motion vectors or depth, so this is not the same as RTX Video Super Resolution, DLSS, FSR 2/3, or optical-flow frame interpolation.
 - Frame generation currently re-renders available decoded frames to a target presentation cadence. It is not true generated intermediate motion.
-- Neural modes can be slow on some GPUs. Neural-Lite may fall back to WASM, and WebGPU RAVU is not implemented yet.
+- Neural modes can be slow on some GPUs. Neural-Lite may fall back to WASM, and WebGPU RAVU-Zoom is not implemented yet.
 
 Chrome Video Upscaler is open source and MIT-licensed for original extension code. Bundled third-party shader/model components are attributed in NOTICE with their licenses preserved, including LGPL RAVU-derived shader assets.
 ```
@@ -136,4 +136,4 @@ Avoid screenshots from DRM streaming services or pages where the source video li
 - Do not claim RTX VSR parity, optical-flow interpolation, driver-level processing, or native OS-wide video enhancement.
 - Do not claim Neural-Lite is always GPU-fast; the current ONNX Runtime path can fall back and may be slow.
 - Do not claim ArtCNN shader-native runtime is fully tuned; it is experimental and selectable, with ONNX Runtime still available as a fallback.
-- Do not claim WebGPU RAVU is complete; current RAVU-Lite/RAVU-Zoom runtime path is WebGL2.
+- Do not claim WebGPU RAVU is complete; RAVU-Lite has a WebGPU path, while RAVU-Zoom remains WebGL2.

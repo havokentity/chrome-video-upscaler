@@ -31,7 +31,7 @@ export const MODE_DESCRIPTIONS: Record<UpscalerMode, string> = {
   invert: 'Experimental inverted color WebGL2 filter.',
   cartoon: 'Experimental toon-shader rotoscope WebGL2 filter.',
   'neural-lite': 'ArtCNN C4F16 with shader-native WebGPU, ONNX Runtime, and WebGL2 preview fallbacks.',
-  'neural-pro': 'LGPL RAVU-Lite-AR r3 WebGL2 port. RAVU-Zoom remains pending.',
+  'neural-pro': 'LGPL RAVU-Lite-AR r3 WebGPU path with WebGL2 fallback. RAVU-Zoom uses WebGL2.',
 };
 
 const IMPLEMENTED_MODES = new Set<UpscalerMode>([
@@ -100,7 +100,7 @@ export const getModeControlState = (mode: UpscalerMode): ModeControlState => {
           : isNeuralLite
             ? 'Neural-Lite Auto tries shader-native WebGPU first, then ONNX Runtime, then WebGL2 preview.'
           : isNeuralPro
-            ? 'Neural-Pro runs the imported LGPL RAVU-Lite WebGL2 port; RAVU-Zoom is pending.'
+            ? 'Neural-Pro tries WebGPU RAVU-Lite first; RAVU-Zoom uses the imported WebGL2 path.'
           : isSmooth
           ? 'Smooth is WebGPU-only.'
           : isFunFilter

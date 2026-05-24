@@ -2,8 +2,8 @@
 
 ## Current Runtime Baseline
 
-Neural-Pro currently has a working WebGL2 runtime path and a disabled WebGPU
-placeholder.
+Neural-Pro currently has a working WebGL2 runtime path and an experimental
+WebGPU RAVU-Lite runtime path.
 
 - `RAVU-Lite-AR r3` is imported from `ravu-lite-ar-r3.hook` and statically
   parsed by `ravu-lite-source.ts`.
@@ -166,6 +166,8 @@ artifacts constrained while the neural shader translation is being validated.
 
 ### Milestone 1: WebGPU Lite Skeleton
 
+Status: complete for runtime allocation and the first WebGPU Lite compute path.
+
 - Add WebGPU resource allocation for Lite LUT and two luma targets.
 - Implement a temporary WGSL pass that samples source luma and writes it through
   the Lite pipeline targets without neural math.
@@ -186,6 +188,8 @@ artifacts constrained while the neural shader translation is being validated.
 - Measure 720p->1440p and 1080p->4K frame time on Apple Silicon.
 
 ### Milestone 4: Zoom
+
+Status: pending. Zoom remains WebGL2-only.
 
 - Reuse the lazy Zoom parser, but upload LUTs into WebGPU textures only when the
   selected variant resolves to Zoom.

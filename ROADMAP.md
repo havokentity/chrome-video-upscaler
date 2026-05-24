@@ -24,7 +24,8 @@
 - [x] Wire ArtCNN C4F16 shader-native WebGPU runtime behind an Auto/ONNX/shader-native selector.
 - [ ] Tune ArtCNN C4F16 shader-native visual quality and performance against ONNX Runtime.
 - [ ] Port ArtCNN C4F32 shader-native WebGPU path.
-- [ ] Port WebGPU Neural-Pro / RAVU with LGPL headers and NOTICE entries.
+- [x] Add WebGPU RAVU-Lite compute path with LGPL attribution and Tint-to-MSL validation.
+- [ ] Port WebGPU RAVU-Zoom with LUT upload and lazy loading.
 - [ ] Add timestamp-query GPU timing, screenshots, and measured cross-platform benchmarks.
 
 ## Explicit Non-Goals

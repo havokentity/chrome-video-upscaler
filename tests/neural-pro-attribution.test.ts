@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import {
   getRavuPlannedSource,
@@ -88,5 +90,25 @@ describe('Neural-Pro RAVU attribution and source import', () => {
     expect(Number.isFinite(source.lut3Values[0])).toBe(true);
     expect(Number.isFinite(source.lut3ArValues[0])).toBe(true);
     expect(cachedSource).toBe(source);
+  });
+
+  it('keeps the WebGPU RAVU-Lite WGSL pass entry points attributable', () => {
+    const readShader = (filename: string): string =>
+      readFileSync(
+        join(process.cwd(), 'src/upscaler/modes/neural-pro', filename),
+        'utf8',
+      );
+
+    const step1 = readShader('ravu-lite-webgpu-step1.wgsl');
+    const step2 = readShader('ravu-lite-webgpu-step2.wgsl');
+    const present = readShader('ravu-lite-webgpu-present.wgsl');
+
+    expect(step1).toContain('RAVU-Lite-AR r3');
+    expect(step1).toContain('ravu_lite_webgpu_step1_main');
+    expect(step1).toContain('@workgroup_size(8, 8, 1)');
+    expect(step2).toContain('RAVU-Lite-AR r3');
+    expect(step2).toContain('ravu_lite_webgpu_step2_main');
+    expect(present).toContain('RAVU-Lite-AR r3');
+    expect(present).toContain('textureSampleLevel');
   });
 });

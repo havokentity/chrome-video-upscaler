@@ -8,7 +8,11 @@ import {
   createWebGpuArtCnnPipeline,
   createWebGpuNeuralLitePipeline,
 } from './modes/neural-lite';
-import { createWebGL2NeuralProPipeline, createWebGpuNeuralProPipeline } from './modes/neural-pro';
+import {
+  createWebGL2NeuralProPipeline,
+  createWebGpuNeuralProPipeline,
+  resolveNeuralProVariant,
+} from './modes/neural-pro';
 import { createWebGL2SharpenPipeline, WebGpuSharpenPipeline } from './modes/sharpen';
 import { WebGpuSmoothPipeline } from './modes/smooth';
 
@@ -191,25 +195,37 @@ export const createPipeline = async (
   }
 
   if (requestedMode === 'neural-pro') {
+    const neuralProVariant = resolveNeuralProVariant(settings.ravuVariant, settings.scale);
+    let webgpuFailure: string | undefined;
+
+    if (!settings.forceWebGL2 && neuralProVariant === 'lite' && 'gpu' in navigator && navigator.gpu) {
+      try {
+        return await createWebGpuNeuralProPipeline({
+          canvas,
+          presentationFormat: navigator.gpu.getPreferredCanvasFormat(),
+          scale: settings.scale,
+          variant: settings.ravuVariant,
+          video,
+        });
+      } catch (error) {
+        webgpuFailure = getErrorMessage(error, 'Unknown WebGPU Neural-Pro error.');
+      }
+    }
+
     try {
-      return await createWebGL2NeuralProPipeline(canvas, video, {
+      const pipeline = await createWebGL2NeuralProPipeline(canvas, video, {
         scale: settings.scale,
         variant: settings.ravuVariant,
       });
+      if (webgpuFailure !== undefined) {
+        pipeline.status.reason = `WebGPU RAVU-Lite failed: ${webgpuFailure}; ${pipeline.status.reason ?? ''}`;
+      }
+      return pipeline;
     } catch (error) {
       const webgl2Failure = getErrorMessage(error, 'Unknown WebGL2 Neural-Pro error.');
-      if (settings.forceWebGL2 || settings.ravuVariant === 'zoom') {
-        return new DisabledPipeline(`WebGL2 Neural-Pro failed: ${webgl2Failure}`, 'neural-pro');
-      }
-
-      const pipeline = await createWebGpuNeuralProPipeline({
-        canvas,
-        scale: settings.scale,
-        variant: settings.ravuVariant,
-        video,
-      });
-      pipeline.status.reason = `WebGL2 Neural-Pro failed: ${webgl2Failure}; ${pipeline.status.reason ?? ''}`;
-      return pipeline;
+      const prefix =
+        webgpuFailure === undefined ? '' : `WebGPU RAVU-Lite failed: ${webgpuFailure}; `;
+      return new DisabledPipeline(`${prefix}WebGL2 Neural-Pro failed: ${webgl2Failure}`, 'neural-pro');
     }
   }
 

@@ -204,7 +204,7 @@ These limitations should remain visible in README, store copy, release notes, or
 - HTML5 video does not expose motion vectors or depth, so this cannot fully match temporal ML scalers or driver-level RTX Video Super Resolution.
 - Frame generation currently re-renders available decoded frames to a target presentation cadence; it is not optical-flow interpolation.
 - Neural-Pro RAVU-Lite can be heavy at high resolutions and high refresh rates, especially on lower-power GPUs.
-- RAVU-Zoom is not enabled yet.
+- RAVU-Zoom is enabled through the WebGL2 path; WebGPU RAVU-Zoom is not enabled yet.
 - Neural-Lite depends on packaged ONNX Runtime Web assets and may fall back from WebGPU to WASM depending on Chrome/GPU support.
 - The native Metal bench is macOS-only and is for offline algorithm comparison, not an extension feature.
 - Chrome Stable manual loading is the release validation target; Playwright Chromium smoke coverage is useful but does not replace manual Chrome checks.
